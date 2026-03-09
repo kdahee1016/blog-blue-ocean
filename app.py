@@ -165,10 +165,37 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             if results:
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 
+                # --- 1. 지수 가이드라인 표시 (그래프 윗쪽) ---
+                st.markdown("### 💡 블루오션 지수 판독 가이드")
+                col_g1, col_g2, col_g3 = st.columns(3)
+                with col_g1:
+                    st.success("**💎 10 이상: 블루오션**\n\n무조건 쓰세요! 상위노출 확률 최상")
+                with col_g2:
+                    st.info("**✅ 5 ~ 10: 할만한 시장**\n\n제목만 잘 지어도 유입이 쏠쏠함")
+                with col_g3:
+                    st.warning("**⚠️ 3 미만: 레드오션**\n\n대형 블로거가 많음. '어그로' 제목 필수")
+                
+                st.markdown("---")
+                
+                # --- 2. 그래프 개선 (수치 표시 추가) ---
                 st.subheader("📈 키워드별 시장성 분석")
-                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', color_continuous_scale='Portland', text='전년비 성장')
+                fig = px.bar(
+                    df, 
+                    x='키워드', 
+                    y='블루오션지수', 
+                    color='블루오션지수', 
+                    color_continuous_scale='Portland',
+                    text='블루오션지수', # 막대 위에 지수 숫자 표시
+                    title="블루오션 지수가 높을수록 글 쓰기 좋은 키워드입니다"
+                )
+                
+                # 그래프 수치 레이아웃 미세 조정
+                fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+                
                 st.plotly_chart(fig, use_container_width=True)
 
+                # --- 3. 상세 리포트 ---
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(
                     df,
@@ -236,6 +263,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
