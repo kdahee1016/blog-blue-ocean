@@ -74,34 +74,34 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
+            # 주소 끝이 'keywords'인 것을 확인하세요! (s가 붙어야 랭킹을 가져옵니다)
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
             
-            # 수정한 body: ages가 빈 리스트일 때 아예 빼버리거나, 형식을 더 단순화함
+            # 네이버 쇼핑인사이트 키워드 랭킹 API의 필수 규격입니다.
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
                 "category": selected_category_id,
                 "device": "",
-                "gender": gender_code
+                "gender": gender_code,
+                "ages": target_ages if target_ages else []
             }
             
-            # 만약 타겟 연령대를 선택했다면 그때만 ages를 추가
-            if target_ages:
-                body["ages"] = target_ages
-            
+            # [중요] 주소가 혹시라도 오타가 날 수 있으니 다시 한 번 변수에 담습니다.
             res = requests.post(url, headers=headers, data=json.dumps(body))
             
             if res.status_code == 200:
                 data = res.json()
-                if "results" in data and data['results'][0]['data']:
+                # 쇼핑인사이트 랭킹 데이터는 ['results'][0]['data'] 구조입니다.
+                if "results" in data and len(data['results']) > 0:
                     final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
                     st.success(f"✅ {str_date} 기준 실시간 키워드 20개 수집 완료!")
                 else:
-                    st.warning(f"⚠️ {str_date} 데이터가 아직 집계되지 않았습니다. 잠시 후 다시 시도해주세요.")
+                    st.warning(f"⚠️ {str_date} 데이터가 아직 없습니다. 타겟을 넓혀보세요.")
             else:
                 st.error(f"❌ 데이터 수집 실패 (에러: {res.status_code})")
-                st.write(res.json())
+                st.write("네이버 응답 메시지:", res.json())
         
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -216,5 +216,6 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
