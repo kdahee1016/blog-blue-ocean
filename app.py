@@ -66,14 +66,13 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
         
         final_keywords = []
-if mode == "실시간 핫 키워드":
-            # 네이버 데이터랩은 집계 지연이 있어, 오늘 기준 3일 전 데이터를 요청하는 것이 가장 정확합니다.
+        
+        # --- [여기서부터 줄 맞춤 주의!] ---
+        if mode == "실시간 핫 키워드":
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
-            
-            # startDate와 endDate를 동일하게 3일 전으로 잡으면 그날의 '일간 랭킹'이 나옵니다.
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
@@ -88,20 +87,20 @@ if mode == "실시간 핫 키워드":
             
             if res.status_code == 200:
                 data = res.json()
-                # 데이터가 있는지 단계별로 확인
                 if "results" in data and data['results'][0]['data']:
-                    # 랭킹 데이터에서 키워드(title)만 20개 추출
                     final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
-                    st.success(f"✅ {str_date} 기준, 가장 핫한 키워드 20개를 찾았습니다!")
+                    st.success(f"✅ {str_date} 기준 키워드 수집 완료!")
                 else:
-                    st.warning(f"⚠️ {str_date}에 해당하는 데이터가 아직 집계되지 않았거나 조건이 너무 상세합니다. 타겟 설정을 조금 더 넓혀보세요!")
+                    st.warning(f"⚠️ {str_date} 데이터 집계 중 혹은 조건 상세함.")
             else:
-                st.error(f"❌ 데이터 수집 실패 (에러 코드: {res.status_code})")
-                # 에러 원인을 파악하기 위해 상세 메시지 출력
+                st.error(f"❌ 데이터 수집 실패 (에러: {res.status_code})")
                 st.write(res.json())
-        else:
+        
+        else:  # <--- 이 else가 위의 'if mode == ...'와 수직으로 딱 맞아야 함!
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+        # --- [여기까지 줄 맞춤 끝] ---
 
+        # 데이터 분석 로직 계속...
         if final_keywords:
             results = []
             with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
@@ -210,4 +209,5 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
