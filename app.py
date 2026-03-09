@@ -24,7 +24,7 @@ st.markdown("---")
 st.sidebar.header("👥 타겟 설정")
 target_gender = st.sidebar.selectbox("성별", ["전체", "여성 (f)", "남성 (m)"])
 gender_code = "" if target_gender == "전체" else target_gender.split("(")[1][0]
-target_ages = st.sidebar.multiselect("연령대", ["10", "20", "30", "40", "50", "60"], default=["30", "40"])
+target_ages = st.sidebar.multiselect("연령대", ["10", "20", "30", "40", "50", "60"], default=[])
 
 # 4. 분석 모드
 category_map = {
@@ -212,3 +212,4 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
