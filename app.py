@@ -175,9 +175,7 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                                 "AI 제목 추천": generate_ai_titles(kw)[0], 
                                 "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                             })
-            if results:
-                df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
-                
+                            
                 # --- 1. 지수 가이드라인 표시 (그래프 윗쪽) ---
                 st.markdown("### 💡 블루오션 지수 판독 가이드")
                 col_g1, col_g2, col_g3 = st.columns(3)
@@ -276,6 +274,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
