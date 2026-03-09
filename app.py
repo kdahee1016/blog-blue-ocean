@@ -74,40 +74,46 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
-            # 주소를 'category/keywords'로 확실하게 고정합니다.
+            # 주소 끝에 's'가 붙은 keywords 임을 다시 한 번 확인!
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
             
-            # ⚠️ 핵심: 네이버가 자꾸 keyword를 찾는 건 주소 인식이 안 돼서 그렇습니다.
-            # body에서 불필요한 필드를 완전히 제거하고 필수값만 넣습니다.
+            # 1. 필수 기본 데이터 구성
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
-                "category": selected_category_id,
+                "category": str(selected_category_id) # 카테고리 ID를 문자열로 확실히 변환
             }
             
-            # 성별과 연령은 값이 있을 때만 추가합니다.
+            # 2. 선택 데이터 (성별)
             if gender_code:
                 body["gender"] = gender_code
-            if target_ages:
-                body["ages"] = target_ages
+            
+            # 3. ⚠️ 핵심 해결 포인트: ages가 비어있으면 아예 key 자체를 보내지 않아야 합니다.
+            # 또한 target_ages가 있으면 네이버 규격에 맞춰 문자열 리스트로 확실히 넣어줍니다.
+            if target_ages and len(target_ages) > 0:
+                body["ages"] = [str(a) for a in target_ages]
+            # 만약 아무것도 선택 안 했다면 ages 키를 아예 생성하지 않음 (네이버 서버 혼동 방지)
 
-            # 요청 전송
+            # 4. JSON 전송 (json.dumps로 확실하게 직렬화)
             res = requests.post(url, headers=headers, data=json.dumps(body))
             
             if res.status_code == 200:
                 data = res.json()
-                # 랭킹 데이터 추출 로직 (네이버 규격에 맞게 수정)
                 if "results" in data and len(data['results']) > 0:
-                    # 쇼핑인사이트 키워드 랭킹은 data[0]['data'] 안에 들어있습니다.
-                    final_keywords = [item['title'] for item in data['results'][0]['data']]
-                    st.success(f"✅ {str_date} 기준 실시간 키워드를 찾았습니다!")
+                    # 네이버 쇼핑인사이트의 정확한 응답 구조: results[0]['data'] 리스트 순회
+                    raw_data = data['results'][0]['data']
+                    if raw_data:
+                        final_keywords = [item['title'] for item in raw_data[:20]]
+                        st.success(f"✅ {str_date} 기준 키워드 수집 성공!")
+                    else:
+                        st.warning("⚠️ 해당 날짜에 수집된 키워드가 없습니다.")
                 else:
-                    st.warning(f"⚠️ {str_date}에 수집된 키워드가 없습니다. 카테고리를 바꿔보세요.")
+                    st.warning("⚠️ 결과 값이 비어있습니다. 카테고리를 바꿔보세요.")
             else:
-                # 🚩 여기서도 400 에러가 나면, 네이버 API 센터의 주소 매핑 문제입니다.
-                st.error(f"❌ 최종 수집 실패 (코드: {res.status_code})")
-                st.info("💡 팁: 네이버 개발자 센터에서 '데이터랩(쇼핑인사이트)' 권한이 활성화되었는지 다시 확인해주세요.")
+                st.error(f"❌ 데이터 수집 실패 (코드: {res.status_code})")
+                st.info("💡 만약 계속 400 에러가 난다면, 사이드바에서 '연령대'를 모두 해제하고 다시 시도해보세요!")
+                st.write("서버 응답 확인용:", res.json())
         
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -222,6 +228,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
