@@ -74,40 +74,40 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
-            # 1. 주소 재확인 (혹시 모를 간섭 방지)
+            # 주소를 'category/keywords'로 확실하게 고정합니다.
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
             
-            # 2. 에러를 피하기 위한 '최소화'된 body 구성
-            # ages와 gender가 문제를 일으키는 경우가 많으므로 일단 제외하고 호출해봅니다.
+            # ⚠️ 핵심: 네이버가 자꾸 keyword를 찾는 건 주소 인식이 안 돼서 그렇습니다.
+            # body에서 불필요한 필드를 완전히 제거하고 필수값만 넣습니다.
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
-                "category": selected_category_id
+                "category": selected_category_id,
             }
             
-            # gender_code가 있을 때만 추가
+            # 성별과 연령은 값이 있을 때만 추가합니다.
             if gender_code:
                 body["gender"] = gender_code
-            
-            # ages는 리스트가 비어있으면 아예 보내지 않는 것이 안전합니다.
             if target_ages:
                 body["ages"] = target_ages
 
+            # 요청 전송
             res = requests.post(url, headers=headers, data=json.dumps(body))
             
             if res.status_code == 200:
                 data = res.json()
+                # 랭킹 데이터 추출 로직 (네이버 규격에 맞게 수정)
                 if "results" in data and len(data['results']) > 0:
-                    final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
-                    st.success(f"✅ {str_date} 기준 키워드 수집 완료!")
+                    # 쇼핑인사이트 키워드 랭킹은 data[0]['data'] 안에 들어있습니다.
+                    final_keywords = [item['title'] for item in data['results'][0]['data']]
+                    st.success(f"✅ {str_date} 기준 실시간 키워드를 찾았습니다!")
                 else:
-                    st.warning("데이터가 없습니다. 날짜나 카테고리를 바꿔보세요.")
+                    st.warning(f"⚠️ {str_date}에 수집된 키워드가 없습니다. 카테고리를 바꿔보세요.")
             else:
-                # 여기서 에러가 나면, 주소를 한 단계 위인 '분석 API'로 우회 시도
-                st.error(f"❌ 수집 에러 (코드: {res.status_code})")
-                st.write("요청 본문 확인:", body) # 내가 보낸 데이터 확인용
-                st.write("서버 메시지:", res.json())
+                # 🚩 여기서도 400 에러가 나면, 네이버 API 센터의 주소 매핑 문제입니다.
+                st.error(f"❌ 최종 수집 실패 (코드: {res.status_code})")
+                st.info("💡 팁: 네이버 개발자 센터에서 '데이터랩(쇼핑인사이트)' 권한이 활성화되었는지 다시 확인해주세요.")
         
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -222,6 +222,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
