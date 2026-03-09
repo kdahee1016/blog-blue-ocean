@@ -22,10 +22,7 @@ st.markdown("---")
 
 # 3. 그 아래에 키워드 입력창 배치
 st.subheader("🔍 분석할 키워드 입력")
-user_input = st.text_area(
-    "키워드를 쉼표(,)로 구분해서 입력하세요", 
-    value="원하는, 키워드를, 입력하세요"
-)
+user_input = st.text_area("키워드 입력", "원하는, 키워드를, 입력하세요")
 
 # 블루오션 지수에 따른 색상 적용 함수
 def highlight_score(val):
@@ -40,9 +37,11 @@ def highlight_score(val):
     else:
         return 'color: green; font-weight: bold' # 10 초과는 초록 볼드!
 
-if start_btn:
+start_btn = st.button("🚀 데이터 분석 시작")
+
+if start_btn: 
     if not c_id or not c_secret:
-        st.error("API 키를 입력해주세요!")
+        st.error("API 키를 넣어주세요.")
     else:
         # 빈칸 제거 로직 적용
         keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -100,3 +99,4 @@ if start_btn:
                 df.to_excel(writer, index=False)
 
             st.download_button("📥 결과 엑셀 다운로드", output.getvalue(), "blue_ocean_report.xlsx")
+
