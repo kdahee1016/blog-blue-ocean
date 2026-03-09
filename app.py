@@ -67,20 +67,22 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         
         final_keywords = []
         
-        # --- [여기서부터 줄 맞춤 주의!] ---
-        if mode == "실시간 핫 키워드":
+   if mode == "실시간 핫 키워드":
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
+            # API 주소 재확인
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
+            
+            # body 구성 (연령대 필터가 에러를 유발할 수 있으므로, 테스트를 위해 잠시 ages를 제외해봅니다)
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
                 "category": selected_category_id,
-                "device": "",
-                "gender": gender_code,
-                "ages": target_ages
+                "device": "",  # pc/mo 구분 안함
+                "gender": gender_code, # "" 또는 "f", "m"
+                "ages": []  # ⚠️ 빈 리스트로 보내면 '전체 연령대'가 나옵니다. 에러 방지를 위해 우선 빈 값으로 세팅!
             }
             
             res = requests.post(url, headers=headers, data=json.dumps(body))
@@ -209,5 +211,6 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
