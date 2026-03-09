@@ -40,25 +40,18 @@ if mode == "실시간 핫 키워드":
 else:
     user_input = st.text_area("키워드 입력 (쉼표 구분)", "아이랑 갈만한, 주말 나들이")
 
-# --- AI 제목 생성 로직 ---
-def generate_human_style_titles(keyword):
+# --- AI 제목 생성 로직 (함수명 통일: generate_ai_titles) ---
+def generate_ai_titles(keyword):
     patterns = [
-        # 1. 경험 강조형 (가장 신뢰도가 높음)
         f"이번 주말에 다녀온 {keyword}, 솔직히 말해서 '이거' 하나는 좀 별로였어요",
         f"드디어 다녀온 {keyword}! 광고 말고 진짜 찐후기 궁금하신 분?",
         f"제가 직접 겪어보고 정리한 {keyword} 방문 전 필수 체크리스트 3가지",
-        
-        # 2. 질문 유도형 (대화하는 느낌)
-        f"혹시 아직도 {keyword} 갈 때 준비물 없이 가나요? (꿀팁 포함)",
+        f"혹시 아직도 {keyword} 갈 때 준비물 없이 가시나요? (꿀팁 포함)",
         f"요즘 SNS에 난리 난 {keyword}, 직접 가보니 이유를 알겠네",
-        f"주말 {keyword} 나들이, 나만 알고싶은 비밀장소,
-        
-        # 3. 구체적 상황 제시 (현장감)
+        f"주말 {keyword} 나들이, 나만 알고싶은 비밀장소였는데 공개합니다",
         f"아이랑 {keyword} 갈 때 '이 때'에 가야 줄 안 서고 들어갑니다",
         f"엄마들이 자꾸 물어보는 {keyword} 정보, 한 페이지로 끝내 드릴게요",
         f"실패 없는 {keyword}를 위한 현실적인 조언 (비용, 동선, 주차)",
-        
-        # 4. 담백한 정보형 (과한 수식어 배제)
         f"{keyword} 방문 예정이라면 꼭 알아야 할 내용 체크",
         f"기대 이상이었던 {keyword}, 놓치면 아쉬울 뻔한 포인트",
         f"솔직히 {keyword} 가기 전에 이 글은 꼭 보길 추천"
@@ -79,6 +72,8 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             res = requests.post(url, headers=headers, data=json.dumps(body))
             if res.status_code == 200:
                 final_keywords = [item['title'] for item in res.json()['results'][0]['data'][:15]]
+            else:
+                st.error("데이터 수집에 실패했습니다. API 설정을 확인해주세요.")
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -113,54 +108,50 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                             "키워드": kw,
                             "블루오션지수": round(score, 2),
                             "전년비 성장": f"{'+' if growth > 0 else ''}{round(growth, 2)}",
-                            "AI 제목 추천": generate_ai_titles(kw)[0], # 첫 번째 추천 제목
+                            "AI 제목 추천": generate_ai_titles(kw)[0], 
                             "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                         })
 
-            df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
-            
-            # 그래프 출력
-            st.subheader("📈 키워드별 시장성 분석")
-            fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', color_continuous_scale='Portland', text='전년비 성장')
-            st.plotly_chart(fig, use_container_width=True)
+            if results:
+                df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
+                
+                st.subheader("📈 키워드별 시장성 분석")
+                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', color_continuous_scale='Portland', text='전년비 성장')
+                st.plotly_chart(fig, use_container_width=True)
 
-            # 상세 결과 테이블
-            st.subheader("📑 AI 전략 리포트")
-            st.dataframe(
-                df,
-                column_config={"상세보기": st.column_config.LinkColumn("네이버 검색")},
-                use_container_width=True
-            )
+                st.subheader("📑 AI 전략 리포트")
+                st.dataframe(
+                    df,
+                    column_config={"상세보기": st.column_config.LinkColumn("네이버 검색")},
+                    use_container_width=True
+                )
 
-            # AI 제목 심층 생성기
-            st.markdown("---")
-            st.subheader("✍️ 선택 키워드 AI 제목 무한 생성")
-            target_kw = st.selectbox("제목을 뽑고 싶은 키워드를 선택하세요", df['키워드'].tolist())
-            if st.button("🪄 새로운 제목 생성"):
-                new_titles = generate_ai_titles(target_kw)
-                for t in new_titles:
-                    st.success(t)
+                st.markdown("---")
+                st.subheader("✍️ 선택 키워드 AI 제목 무한 생성")
+                target_kw = st.selectbox("제목을 뽑고 싶은 키워드를 선택하세요", df['키워드'].tolist())
+                if st.button("🪄 새로운 제목 생성"):
+                    new_titles = generate_ai_titles(target_kw)
+                    for t in new_titles:
+                        st.success(t)
 
-        st.markdown("---")
+# --- 6. 프롬프트 생성기 (분석 버튼과 별개로 항상 표시됨) ---
+st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
 
-# 1. 입력창 구성
 m_key = st.text_input("📍 메인 키워드", placeholder="예: 아이랑 갈만한 곳")
 
 col_s1, col_s2 = st.columns(2)
 with col_s1:
-    s_key1 = st.text_input("🔹 서브1", key="s1")
-    s_key2 = st.text_input("🔹 서브2", key="s2")
-    s_key3 = st.text_input("🔹 서브3", key="s3")
+    s_key1 = st.text_input("🔹 서브1")
+    s_key2 = st.text_input("🔹 서브2")
+    s_key3 = st.text_input("🔹 서브3")
 with col_s2:
-    s_key4 = st.text_input("🔹 서브4", key="s4")
-    s_key5 = st.text_input("🔹 서브5", key="s5")
+    s_key4 = st.text_input("🔹 서브4")
+    s_key5 = st.text_input("🔹 서브5")
 
-# 서브키워드 리스트화 (공백 제거)
 sub_keys = [k for k in [s_key1, s_key2, s_key3, s_key4, s_key5] if k.strip()]
 sub_keys_str = ", ".join(sub_keys) if sub_keys else "(없음)"
 
-# 2. 프롬프트 양식 세팅 (줄바꿈과 기호 그대로 유지)
 final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
  - 서브키워드 [{sub_keys_str}]은 2회씩 본문에 잘 녹아들도록 자연스럽게 넣어줘.
 
@@ -169,7 +160,7 @@ final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
  - 긴 문장이라도 한 줄에 공백포함 최대 60~70byte로 자연스럽게 끊어서 작성해줘. (블로그 모바일 화면으로 편하게 읽힐 수 있도록)
  - 본문 전체는 자연스러운 스토리텔링으로 한글 기준 약 3,500자로 맞춰줘.
  - 글 곳곳에 아래 이모티콘 중 5~6개 정도 활용해줘,
-!(•̀ᴗ•́)و ̑̑ / (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ / (୨୧ ❛ᴗ❛)✧ / (୨୧ •͈ᴗ•͈) / (•̆ꈊ•̆ ) / (ꈍᴗꈍ)♡ / - ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- / ٩(*•̀ᴗ•́*)و / ٩( ᐢ-ᐢ )و / ٩(๑❛ᴗ❛๑)۶♡ / ٩(◕ᗜ◕)و / ദ്ദി( ¯꒳¯ ) / ☆٩(｡•ω<｡)﻿و / :) / :D / >_< / +ㅂ+ 
+!(•̀ᴗ•́)و ̑̑ / (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ / (୨୧ ❛ᴗ❛)✧ / (୨୧ •͈ᴗ•͈) / (•̆ꈊ•̆ ) / (ꈍᴗꈍ)♡ / - ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- / ٩(*•̀ᴗ•́*)و / ٩( ᐢ-ᐢ )و / ٩(๑❛ᴗ❛๑)۶♡ / ٩(◕ᗜ◕)و / ദ്ദി( ¯꒳¯ ) / ☆٩(｡•ω<｡)و / :) / :D / >_< / +ㅂ+ 
  - 글 곳곳에 어울리는 이모지도 6~10개 활용해 줘. 
  - AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토해주고,
  - 상위노출SEO 반영해서 내용 작성해줘.
@@ -188,11 +179,9 @@ final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
 요약문 -> 매장정보(주소/운영시간/휴무일/매장전화번호) -> 
 이후 본문은 내가 입력"""
 
-# 3. 버튼 생성 및 처리
 if st.button("📋 본문작성 프롬프트 복사"):
     if not m_key:
         st.warning("⚠️ 메인키워드를 입력하세요.")
     else:
-        # 텍스트 영역에 프롬프트를 띄워주고 사용자가 바로 복사하게 함
-        st.text_area("아래 내용을 복사해서 ChatGPT나 Claude에 붙여넣으세요!", value=final_prompt, height=400)
-        st.success("✅ 프롬프트가 생성되었습니다! 아래 창의 내용을 전체 선택해서 복사하세요.")            
+        st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
+        st.success("✅ 프롬프트가 생성되었습니다!")
