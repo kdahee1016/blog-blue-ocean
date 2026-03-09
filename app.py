@@ -8,16 +8,24 @@ import plotly.express as px  # 그래프를 위해 추가
 
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블루오션 키워드 분석기", layout="wide")
-st.title("📊 오키랑의 블루오션 키워드 분석기")
+st.title("🌊 오키랑의 블루오션 키워드 분석기")
 
-# 사이드바 설정
-st.sidebar.header("🔑 API 설정")
-c_id = st.sidebar.text_input("Client ID", type="password")
-c_secret = st.sidebar.text_input("Client Secret", type="password")
+# 2. API 설정창을 메인 화면 최상단에 배치 (접었다 폈다 할 수 있게!)
+with st.expander("🔐 네이버 API 키 입력 (먼저 입력해주세요)", expanded=True):
+    col1, col2 = st.columns(2)
+    with col1:
+        c_id = st.text_input("Client ID", type="password")
+    with col2:
+        c_secret = st.text_input("Client Secret", type="password")
 
-# 키워드 입력
-user_input = st.text_area("분석할 키워드 (쉼표 구분)", "원하는, 키워드를, 작성해주세요")
-start_btn = st.button("🚀 심층 분석 시작")
+st.markdown("---")
+
+# 3. 그 아래에 키워드 입력창 배치
+st.subheader("🔍 분석할 키워드 입력")
+user_input = st.text_area(
+    "키워드를 쉼표(,)로 구분해서 입력하세요", 
+    value="원하는, 키워드를, 입력하세요"
+)
 
 # 블루오션 지수에 따른 색상 적용 함수
 def highlight_score(val):
@@ -90,4 +98,5 @@ if start_btn:
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False)
+
             st.download_button("📥 결과 엑셀 다운로드", output.getvalue(), "blue_ocean_report.xlsx")
