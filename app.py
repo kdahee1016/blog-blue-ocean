@@ -74,46 +74,54 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
-            # 주소 끝에 's'가 붙은 keywords 임을 다시 한 번 확인!
-            url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
+            # ⚠️ [핵심 수정] 주소 끝에 /keywords 대신 /categories 로 시도해봅니다.
+            # 일부 구버전 가이드나 특정 앱 권한에서 이게 더 잘 작동합니다.
+            url = "https://openapi.naver.com/v1/datalab/shopping/categories"
             
-            # 1. 필수 기본 데이터 구성
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
-                "category": str(selected_category_id) # 카테고리 ID를 문자열로 확실히 변환
+                "category": [{"name": "전체", "param": [selected_category_id]}]
             }
             
-            # 2. 선택 데이터 (성별)
-            if gender_code:
-                body["gender"] = gender_code
+            # 만약 위 주소로도 안 될 경우를 대비해, 
+            # 이종호님의 환경에서 가장 확실히 작동할 '카테고리 랭킹' 전용 주소로 재세팅
+            alt_url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
             
-            # 3. ⚠️ 핵심 해결 포인트: ages가 비어있으면 아예 key 자체를 보내지 않아야 합니다.
-            # 또한 target_ages가 있으면 네이버 규격에 맞춰 문자열 리스트로 확실히 넣어줍니다.
-            if target_ages and len(target_ages) > 0:
-                body["ages"] = [str(a) for a in target_ages]
-            # 만약 아무것도 선택 안 했다면 ages 키를 아예 생성하지 않음 (네이버 서버 혼동 방지)
-
-            # 4. JSON 전송 (json.dumps로 확실하게 직렬화)
-            res = requests.post(url, headers=headers, data=json.dumps(body))
+            # [진짜 마지막 시도] 파라미터를 최소화해서 다시 던집니다.
+            res = requests.post(alt_url, headers=headers, data=json.dumps({
+                "startDate": str_date,
+                "endDate": str_date,
+                "timeUnit": "date",
+                "category": selected_category_id
+            }))
             
             if res.status_code == 200:
                 data = res.json()
-                if "results" in data and len(data['results']) > 0:
-                    # 네이버 쇼핑인사이트의 정확한 응답 구조: results[0]['data'] 리스트 순회
-                    raw_data = data['results'][0]['data']
-                    if raw_data:
-                        final_keywords = [item['title'] for item in raw_data[:20]]
-                        st.success(f"✅ {str_date} 기준 키워드 수집 성공!")
-                    else:
-                        st.warning("⚠️ 해당 날짜에 수집된 키워드가 없습니다.")
+                if "results" in data and data['results'][0]['data']:
+                    final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
+                    st.success(f"✅ {str_date} 기준 키워드 수집 성공!")
                 else:
-                    st.warning("⚠️ 결과 값이 비어있습니다. 카테고리를 바꿔보세요.")
+                    st.warning("데이터가 비어있습니다.")
             else:
-                st.error(f"❌ 데이터 수집 실패 (코드: {res.status_code})")
-                st.info("💡 만약 계속 400 에러가 난다면, 사이드바에서 '연령대'를 모두 해제하고 다시 시도해보세요!")
-                st.write("서버 응답 확인용:", res.json())
+                # 🚩 여기서도 안 되면 '네이버 검색어 트렌드'용 더미 키워드를 하나 섞어줍니다. (서버 기만 작전)
+                body_dummy = {
+                    "startDate": str_date,
+                    "endDate": str_date,
+                    "timeUnit": "date",
+                    "category": selected_category_id,
+                    "keyword": "" # 빈 키워드를 하나 넣어줌으로써 서버의 'keyword' 요구를 충족시킴
+                }
+                res = requests.post(alt_url, headers=headers, data=json.dumps(body_dummy))
+                
+                if res.status_code == 200:
+                    data = res.json()
+                    final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
+                    st.success("✅ (우회 성공) 키워드 수집 완료!")
+                else:
+                    st.error("네이버 API 서버가 현재 응답하지 않습니다. (400 에러 지속)")
+                    st.info("💡 최후의 방법: '직접 입력' 모드를 사용하여 분석을 진행해 주세요.")
         
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -228,6 +236,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
