@@ -130,38 +130,53 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         if final_keywords:
             results = []
             with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
+results = []
+            with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
                 for kw in final_keywords:
-                    # 현재 트렌드
+                    # 1. 현재 검색량 트렌드 조회 (네이버 데이터랩)
                     s_body = {"startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": datetime.now().strftime('%Y-%m-%d'), "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                     res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                     
-                    # 작년 트렌드 (시즌성)
+                    # 2. 전년도 검색량 트렌드 조회 (시즌성 비교)
                     last_year_start = (datetime.now() - timedelta(days=365+30)).strftime('%Y-%m-%d')
                     last_year_end = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
                     s_body_last = {"startDate": last_year_start, "endDate": last_year_end, "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                     res_last = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body_last))
                     
-                    # 블로그수 검색
-                    res_b = requests.get(f"https://openapi.naver.com/v1/search/blog?query={kw}&display=1", headers=headers)
-                    
-                    if res_now.status_code == 200:
-                        try: now_ratio = res_now.json()['results'][0]['data'][0]['ratio']
-                        except: now_ratio = 0
-                        try: last_ratio = res_last.json()['results'][0]['data'][0]['ratio']
-                        except: last_ratio = 0
-                        
-                        growth = now_ratio - last_ratio
-                        blog_count = res_b.json().get('total', 0)
-                        score = (now_ratio / (blog_count + 1)) * 10000
-                        
-                        results.append({
-                            "키워드": kw,
-                            "블루오션지수": round(score, 2),
-                            "전년비 성장": f"{'+' if growth > 0 else ''}{round(growth, 2)}",
-                            "AI 제목 추천": generate_ai_titles(kw)[0], 
-                            "상세보기": f"https://search.naver.com/search.naver?query={kw}"
-                        })
+                    # 3. [업그레이드] 블로그 문서수 검색 (띄어쓰기+붙여쓰기 통합)
+                    import urllib.parse
+                    def get_blog_total(target_kw):
+                        encoded = urllib.parse.quote(target_kw)
+                        url = f"https://openapi.naver.com/v1/search/blog?query={encoded}&display=1"
+                        res = requests.get(url, headers=headers)
+                        return res.json().get('total', 0) if res.status_code == 200 else 0
 
+                    # 띄어쓰기 있는 버전 vs 없는 버전 중 더 큰 검색결과를 가져옴
+                    cnt1 = get_blog_total(kw)
+                    cnt2 = get_blog_total(kw.replace(" ", ""))
+                    blog_count = max(cnt1, cnt2, 1) # 0으로 나누기 방지
+                    
+                    # 4. 데이터 정제 및 지수 계산
+                    if res_now.status_code == 200:
+                        try:
+                            # 검색량이 아예 없으면 0.01이라도 줘서 그래프에 표시되게 함
+                            now_data = res_now.json()['results'][0]['data']
+                            now_ratio = now_data[0]['ratio'] if now_data else 0.01
+                            
+                            last_data = res_last.json()['results'][0]['data']
+                            last_ratio = last_data[0]['ratio'] if last_data else 0
+                            
+                            growth = now_ratio - last_ratio
+                            # 블루오션 지수 공식: (검색량 / 블로그수) * 10,000
+                            score = (now_ratio / blog_count) * 10000
+                            
+                            results.append({
+                                "키워드": kw,
+                                "블루오션지수": round(score, 4), # 소수점 4자리까지 정밀하게
+                                "전년비 성장": f"{'+' if growth > 0 else ''}{round(growth, 2)}",
+                                "AI 제목 추천": generate_ai_titles(kw)[0], 
+                                "상세보기": f"https://search.naver.com/search.naver?query={kw}"
+                            })
             if results:
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 
@@ -263,6 +278,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
