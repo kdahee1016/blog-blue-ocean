@@ -74,34 +74,40 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
-            # 주소 끝이 'keywords'인 것을 확인하세요! (s가 붙어야 랭킹을 가져옵니다)
+            # 1. 주소 재확인 (혹시 모를 간섭 방지)
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
             
-            # 네이버 쇼핑인사이트 키워드 랭킹 API의 필수 규격입니다.
+            # 2. 에러를 피하기 위한 '최소화'된 body 구성
+            # ages와 gender가 문제를 일으키는 경우가 많으므로 일단 제외하고 호출해봅니다.
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
-                "category": selected_category_id,
-                "device": "",
-                "gender": gender_code,
-                "ages": target_ages if target_ages else []
+                "category": selected_category_id
             }
             
-            # [중요] 주소가 혹시라도 오타가 날 수 있으니 다시 한 번 변수에 담습니다.
+            # gender_code가 있을 때만 추가
+            if gender_code:
+                body["gender"] = gender_code
+            
+            # ages는 리스트가 비어있으면 아예 보내지 않는 것이 안전합니다.
+            if target_ages:
+                body["ages"] = target_ages
+
             res = requests.post(url, headers=headers, data=json.dumps(body))
             
             if res.status_code == 200:
                 data = res.json()
-                # 쇼핑인사이트 랭킹 데이터는 ['results'][0]['data'] 구조입니다.
                 if "results" in data and len(data['results']) > 0:
                     final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
-                    st.success(f"✅ {str_date} 기준 실시간 키워드 20개 수집 완료!")
+                    st.success(f"✅ {str_date} 기준 키워드 수집 완료!")
                 else:
-                    st.warning(f"⚠️ {str_date} 데이터가 아직 없습니다. 타겟을 넓혀보세요.")
+                    st.warning("데이터가 없습니다. 날짜나 카테고리를 바꿔보세요.")
             else:
-                st.error(f"❌ 데이터 수집 실패 (에러: {res.status_code})")
-                st.write("네이버 응답 메시지:", res.json())
+                # 여기서 에러가 나면, 주소를 한 단계 위인 '분석 API'로 우회 시도
+                st.error(f"❌ 수집 에러 (코드: {res.status_code})")
+                st.write("요청 본문 확인:", body) # 내가 보낸 데이터 확인용
+                st.write("서버 메시지:", res.json())
         
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -216,6 +222,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
