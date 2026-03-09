@@ -130,8 +130,6 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         if final_keywords:
             results = []
             with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
-results = []
-            with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
                 for kw in final_keywords:
                     # 1. 현재 검색량 트렌드 조회 (네이버 데이터랩)
                     s_body = {"startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": datetime.now().strftime('%Y-%m-%d'), "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
@@ -278,6 +276,7 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
