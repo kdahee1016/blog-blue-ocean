@@ -71,20 +71,24 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         final_keywords = []
         
         if mode == "실시간 핫 키워드":
-            # 3일 전 데이터로 안정적인 수집
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
+            
+            # 수정한 body: ages가 빈 리스트일 때 아예 빼버리거나, 형식을 더 단순화함
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
                 "category": selected_category_id,
                 "device": "",
-                "gender": gender_code,
-                "ages": [] # 에러 방지를 위해 빈 리스트로 설정
+                "gender": gender_code
             }
+            
+            # 만약 타겟 연령대를 선택했다면 그때만 ages를 추가
+            if target_ages:
+                body["ages"] = target_ages
             
             res = requests.post(url, headers=headers, data=json.dumps(body))
             
@@ -212,4 +216,5 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
