@@ -53,8 +53,6 @@ def generate_ai_titles(keyword):
         f"엄마들이 자꾸 물어보는 {keyword} 정보, 한 페이지로 끝내 드릴게요",
         f"실패 없는 {keyword}를 위한 현실적인 조언 (비용, 동선, 주차)",
         f"{keyword} 방문 예정이라면 꼭 알아야 할 내용 체크"
-        f"기대 이상이었던 {keyword}, 놓치면 아쉬울 뻔한 포인트",
-        f"솔직히 {keyword} 가기 전에 이 글은 꼭 보길 추천"
     ]
     return random.sample(patterns, 5)
 
@@ -93,7 +91,6 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             results = []
             with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
                 for kw in final_keywords:
-                    # 블로그수 합산 (띄어쓰기 포함 vs 미포함)
                     def get_blog_total(t_kw):
                         encoded = urllib.parse.quote(t_kw)
                         b_url = f"https://openapi.naver.com/v1/search/blog?query={encoded}&display=1"
@@ -104,11 +101,10 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                     cnt2 = get_blog_total(kw.replace(" ", ""))
                     blog_count = max(cnt1, cnt2, 1)
 
-                    # 검색량 조회
                     s_body = {"startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": datetime.now().strftime('%Y-%m-%d'), "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                     res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                     
-                    now_ratio = 0.01 # 기본값
+                    now_ratio = 0.01
                     if res_now.status_code == 200:
                         try:
                             n_data = res_now.json()['results'][0]['data']
@@ -126,7 +122,6 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             if results:
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 
-                # 가이드라인 표시
                 st.markdown("### 💡 블루오션 지수 판독 가이드")
                 col_g1, col_g2, col_g3 = st.columns(3)
                 with col_g1: st.success("**💎 10 이상: 블루오션**\n\n무조건 쓰세요! 노출 확률 최상")
@@ -135,12 +130,41 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                 
                 st.markdown("---")
                 
-                # 그래프 표시
                 st.subheader("📈 키워드별 시장성 분석")
-                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
-                             color_continuous_scale='Portland')
+                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수', color_continuous_scale='Portland')
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
                 st.plotly_chart(fig, use_container_width=True)
 
                 st.subheader("📑 AI 전략 리포트")
-                st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("네이버 검색
+                st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("네이버 검색")}, use_container_width=True)
+
+# 6. 본문 프롬프트 생성기
+st.markdown("---")
+st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
+
+m_key = st.text_input("📍 메인 키워드", placeholder="메인 키워드를 입력하세요.")
+
+col_s1, col_s2 = st.columns(2)
+with col_s1:
+    s_key1 = st.text_input("🔹 서브1")
+    s_key2 = st.text_input("🔹 서브2")
+    s_key3 = st.text_input("🔹 서브3")
+with col_s2:
+    s_key4 = st.text_input("🔹 서브4")
+    s_key5 = st.text_input("🔹 서브5")
+
+sub_keys = [k for k in [s_key1, s_key2, s_key3, s_key4, s_key5] if k.strip()]
+sub_keys_str = ", ".join(sub_keys) if sub_keys else "(없음)"
+
+final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
+ - 서브키워드 [{sub_keys_str}]은 2회씩 본문에 잘 녹아들도록 자연스럽게 넣어줘.
+ - 30대 여자가 작성하는 ~했음, ~했다, 일기형 말투 활용.
+ - 한글 기준 약 3,500자로 작성하고 이모티콘 적극 활용.
+ - 상위노출 SEO 반영해서 작성해줘."""
+
+if st.button("📋 본문작성 프롬프트 생성"):
+    if not m_key:
+        st.warning("⚠️ 메인키워드를 입력하세요.")
+    else:
+        st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
+        st.success("✅ 프롬프트가 생성되었습니다!")
