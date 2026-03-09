@@ -3,13 +3,12 @@ import requests
 import json
 import pandas as pd
 from datetime import datetime, timedelta
-import io
 import plotly.express as px
 import random
 
 # 1. 페이지 설정
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
-st.title("🍀오키랑의 키워드 분석")
+st.title("🍀 오키랑의 키워드 분석")
 
 # 2. API 설정
 with st.expander("🔐 네이버 API 키 입력", expanded=True):
@@ -21,7 +20,7 @@ with st.expander("🔐 네이버 API 키 입력", expanded=True):
 
 st.markdown("---")
 
-# 3. 사이드바 설정 (타겟팅)
+# 3. 사이드바 설정
 st.sidebar.header("👥 타겟 설정")
 target_gender = st.sidebar.selectbox("성별", ["전체", "여성 (f)", "남성 (m)"])
 gender_code = "" if target_gender == "전체" else target_gender.split("(")[1][0]
@@ -40,7 +39,7 @@ if mode == "실시간 핫 키워드":
 else:
     user_input = st.text_area("키워드 입력 (쉼표 구분)", "아이랑 갈만한, 주말 나들이")
 
-# --- AI 제목 생성 로직 (함수명 통일: generate_ai_titles) ---
+# --- AI 제목 생성 함수 ---
 def generate_ai_titles(keyword):
     patterns = [
         f"이번 주말에 다녀온 {keyword}, 솔직히 말해서 '이거' 하나는 좀 별로였어요",
@@ -63,26 +62,28 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
     if not c_id or not c_secret:
         st.error("API 키를 입력하세요!")
     else:
-        headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
+        headers = {
+            "X-Naver-Client-Id": c_id, 
+            "X-Naver-Client-Secret": c_secret, 
+            "Content-Type": "application/json"
+        }
         
         final_keywords = []
         
-   if mode == "실시간 핫 키워드":
+        if mode == "실시간 핫 키워드":
+            # 3일 전 데이터로 안정적인 수집
             target_date = datetime.now() - timedelta(days=3)
             str_date = target_date.strftime('%Y-%m-%d')
             
-            # API 주소 재확인
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
-            
-            # body 구성 (연령대 필터가 에러를 유발할 수 있으므로, 테스트를 위해 잠시 ages를 제외해봅니다)
             body = {
                 "startDate": str_date,
                 "endDate": str_date,
                 "timeUnit": "date",
                 "category": selected_category_id,
-                "device": "",  # pc/mo 구분 안함
-                "gender": gender_code, # "" 또는 "f", "m"
-                "ages": []  # ⚠️ 빈 리스트로 보내면 '전체 연령대'가 나옵니다. 에러 방지를 위해 우선 빈 값으로 세팅!
+                "device": "",
+                "gender": gender_code,
+                "ages": [] # 에러 방지를 위해 빈 리스트로 설정
             }
             
             res = requests.post(url, headers=headers, data=json.dumps(body))
@@ -91,18 +92,17 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                 data = res.json()
                 if "results" in data and data['results'][0]['data']:
                     final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
-                    st.success(f"✅ {str_date} 기준 키워드 수집 완료!")
+                    st.success(f"✅ {str_date} 기준 실시간 키워드 20개 수집 완료!")
                 else:
-                    st.warning(f"⚠️ {str_date} 데이터 집계 중 혹은 조건 상세함.")
+                    st.warning(f"⚠️ {str_date} 데이터가 아직 집계되지 않았습니다. 잠시 후 다시 시도해주세요.")
             else:
                 st.error(f"❌ 데이터 수집 실패 (에러: {res.status_code})")
                 st.write(res.json())
         
-        else:  # <--- 이 else가 위의 'if mode == ...'와 수직으로 딱 맞아야 함!
+        else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
-        # --- [여기까지 줄 맞춤 끝] ---
 
-        # 데이터 분석 로직 계속...
+        # 수집된 키워드로 상세 분석 진행
         if final_keywords:
             results = []
             with st.spinner("📊 시즌성 비교 및 데이터 분석 중..."):
@@ -117,7 +117,7 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                     s_body_last = {"startDate": last_year_start, "endDate": last_year_end, "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                     res_last = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body_last))
                     
-                    # 블로그수
+                    # 블로그수 검색
                     res_b = requests.get(f"https://openapi.naver.com/v1/search/blog?query={kw}&display=1", headers=headers)
                     
                     if res_now.status_code == 200:
@@ -160,11 +160,11 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                     for t in new_titles:
                         st.success(t)
 
-# --- 6. 프롬프트 생성기 (분석 버튼과 별개로 항상 표시됨) ---
+# 6. 블로그 본문 프롬프트 생성기 (항상 표시)
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
 
-m_key = st.text_input("📍 메인 키워드", placeholder="예: 아이랑 갈만한 곳")
+m_key = st.text_input("📍 메인 키워드", placeholder="메인 키워드를 입력하세요.")
 
 col_s1, col_s2 = st.columns(2)
 with col_s1:
@@ -178,6 +178,7 @@ with col_s2:
 sub_keys = [k for k in [s_key1, s_key2, s_key3, s_key4, s_key5] if k.strip()]
 sub_keys_str = ", ".join(sub_keys) if sub_keys else "(없음)"
 
+# 프롬프트 템플릿
 final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
  - 서브키워드 [{sub_keys_str}]은 2회씩 본문에 잘 녹아들도록 자연스럽게 넣어줘.
 
@@ -211,6 +212,3 @@ if st.button("📋 본문작성 프롬프트 복사"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=450)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
-
-
