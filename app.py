@@ -113,24 +113,22 @@ category_map = {
         "시계/쥬얼리": "50000058"
     }
 }
+
 mode = st.radio("모드 선택", ["직접 입력", "실시간 핫 키워드"])
 
 if mode == "실시간 핫 키워드":
-    # 1. 대분류 선택 (예: 패션의류, 식품 등)
+    # 대분류 선택
     main_category = st.selectbox("📂 대분류를 선택하세요", list(category_map.keys()))
     
-    # 2. 선택된 대분류 안에 있는 하위 리스트 가져오기
+    # 선택된 대분류에 맞는 하위 리스트 구성
     sub_category_list = list(category_map[main_category].keys())
     
-    # 3. 하위 카테고리 선택 칸 (이 코드가 있어야 칸이 나타납니다!)
+    # 하위 카테고리 선택
     sub_category = st.selectbox("🔍 하위 카테고리를 선택하세요", sub_category_list)
     
-    # 4. 최종 API 전송용 코드 추출
+    # 최종 선택된 코드 추출
     selected_category_id = category_map[main_category][sub_category]
-    selected_name = sub_category
-    
     st.info(f"✅ 현재 선택: {main_category} > {sub_category} (코드: {selected_category_id})")
-
 else:
     user_input = st.text_area("키워드 입력 (쉼표 구분)", "아이랑 갈만한, 주말 나들이")
 
@@ -164,27 +162,26 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         final_keywords = []
         
         if mode == "실시간 핫 키워드":
-            start_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
-            end_date = datetime.now().strftime('%Y-%m-%d')
-
+            # 3일 전 데이터를 기준으로 실시간성 확보
+            target_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
 
             body = {
-            "startDate": start_date,
-            "endDate": end_date,
-            "timeUnit": "date",
-            "category": selected_category_id
-           }
+                "startDate": target_date,
+                "endDate": target_date,
+                "timeUnit": "date",
+                "category": str(selected_category_id) # API 전송용 문자열 변환
+            }
             if gender_code: body["gender"] = gender_code
             if target_ages: body["ages"] = target_ages
             
             res = requests.post(url, headers=headers, data=json.dumps(body))
             if res.status_code == 200:
                 data = res.json()
-                if "results" in data:
+                if "results" in data and data['results']:
                     final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
             else:
-                st.warning("⚠️ 실시간 수집 일시 오류. 직접 입력을 이용해주세요.")
+                st.warning("⚠️ 실시간 수집 일시 오류. API 설정 혹은 카테고리를 확인해주세요.")
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -272,9 +269,9 @@ final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
  (예시) 서울,인천 쪽은 이미 ㅇㅇㅇ가 유명한 지역인데
 대구에 ㅇㅇㅇ 맛집이 있다는 이야기를 듣고
 드디어 다녀오게 됨 :D
-     
+      
 특히 아이랑 같이 먹기 좋은 메뉴라 더 관심이 갔던 곳이다.
-     
+      
 ​고퀄리티의 ㅇㅇㅇㅇ를 배터지게 먹고 온      
 방문후기 고고쓰 (ღ•͈ᴗ•͈ღ)
 
@@ -289,6 +286,3 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
-
-
