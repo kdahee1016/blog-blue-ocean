@@ -116,8 +116,21 @@ category_map = {
 mode = st.radio("모드 선택", ["직접 입력", "실시간 핫 키워드"])
 
 if mode == "실시간 핫 키워드":
-    selected_name = st.selectbox("카테고리 선택", list(category_map.keys()))
-    selected_category_id = category_map[selected_name]
+    # 1. 대분류 선택 (예: 패션의류, 식품 등)
+    main_category = st.selectbox("📂 대분류를 선택하세요", list(category_map.keys()))
+    
+    # 2. 선택된 대분류 안에 있는 하위 리스트 가져오기
+    sub_category_list = list(category_map[main_category].keys())
+    
+    # 3. 하위 카테고리 선택 칸 (이 코드가 있어야 칸이 나타납니다!)
+    sub_category = st.selectbox("🔍 하위 카테고리를 선택하세요", sub_category_list)
+    
+    # 4. 최종 API 전송용 코드 추출
+    selected_category_id = category_map[main_category][sub_category]
+    selected_name = sub_category
+    
+    st.info(f"✅ 현재 선택: {main_category} > {sub_category} (코드: {selected_category_id})")
+
 else:
     user_input = st.text_area("키워드 입력 (쉼표 구분)", "아이랑 갈만한, 주말 나들이")
 
@@ -276,5 +289,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
