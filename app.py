@@ -7,7 +7,7 @@ import plotly.express as px
 import urllib.parse
 import math
 import random
-from bs4 import BeautifulSoup  # 연관검색어 크롤링을 위해 추가
+from bs4 import BeautifulSoup
 
 # 1. 페이지 설정
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
@@ -70,122 +70,71 @@ else:
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
-    clean_id = c_id.strip()
-    clean_secret = c_secret.strip()
-    headers = {
-        "X-Naver-Client-Id": clean_id, 
-        "X-Naver-Client-Secret": clean_secret, 
-        "Content-Type": "application/json"
-    }
-    
+    headers = {"X-Naver-Client-Id": c_id.strip(), "X-Naver-Client-Secret": c_secret.strip(), "Content-Type": "application/json"}
     final_keywords = [] 
 
-    with st.spinner('선택하신 카테고리에 딱 맞는 키워드를 분석 중입니다...'):
-        # 1. 키워드 추출 로직
+    with st.spinner('분석 중...'):
         if mode == "실시간 핫 키워드":
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             payload = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
-            
-            try:
-                res = requests.post(url, headers=headers, json=payload)
-                if res.status_code == 200:
-                    raw_data = res.json().get('results', [{}])[0].get('data', [])
-                    final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
-            except:
-                pass
-
-            if not final_keywords:
-                st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
-                if any(x in search_name for x in ["여행", "티켓", "가볼만한곳"]):
-                    suffixes = ["아이랑 가볼만한곳", "주차 정보", "입장료 할인", "근처 맛집 베스트", "포토존 위치", "현지인 추천 코스", "내돈내산 솔직후기"]
-                elif any(x in search_name for x in ["의류", "패션", "잡화"]):
-                    suffixes = ["코디", "사이즈", "추천", "브랜드", "신상", "데일리룩", "후기", "하객룩", "가성비", "쇼핑몰"]
-                elif any(x in search_name for x in ["식품", "음식", "맛집"]):
-                    suffixes = ["밀키트", "대용량", "레시피", "칼로리", "맛있게 먹는 법", "추천", "후기", "유통기한", "보관법"]
-                elif any(x in search_name for x in ["육아", "아동", "유아"]):
-                    suffixes = ["추천", "사이즈", "선물", "인기순위", "체험단", "내돈내산", "공구", "할인", "사용법", "신학기"]
-                else:
-                    suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁"]
-                
-                final_keywords = [f"{search_name} {s}" for s in suffixes]
-        
+            res = requests.post(url, headers=headers, json=payload)
+            if res.status_code == 200:
+                raw_data = res.json().get('results', [{}])[0].get('data', [])
+                final_keywords = [item.get('group') for item in raw_data[:15]]
         else: 
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-        # 2. 결과 분석 및 출력
         if final_keywords:
             results_list = []
-            related_data = {} # 연관검색어 저장용
+            related_data = {}
             p_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # 1. 블로그 발행량 조회
-                r_blog = requests.get(
-                    f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
-                    headers=headers
-                )
+                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 0) if r_blog.status_code == 200 else 0
                 
-                # 2. 검색 트렌드 조회
                 url_trend = "https://openapi.naver.com/v1/datalab/search"
-                yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                last_month = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-                payload_trend = {
-                    "startDate": last_month, "endDate": yesterday, "timeUnit": "month",
-                    "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
-                }
+                payload_trend = {"startDate": (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'), "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                 res_trend = requests.post(url_trend, headers=headers, json=payload_trend)
                 s_ratio = 0
                 if res_trend.status_code == 200:
                     res_data = res_trend.json().get('results', [{}])[0].get('data', [])
                     if res_data: s_ratio = res_data[0].get('ratio', 0)
 
-                # 3. 등급 산출
-                if b_cnt > 100000:
-                    status = "🔴 레드오션"; score = 1.5
-                elif b_cnt > 30000:
-                    status = "🟠 중간"; score = 4.5
-                elif b_cnt > 5000:
-                    status = "🟢 양호"; score = 7.5
-                else:
-                    if s_ratio > 0:
-                        status = "🔵 블루오션"; score = 9.5
-                    else:
-                        status = "🟢 양호"; score = 6.5
+                if b_cnt > 100000: status = "🔴 레드오션"; score = 1.5
+                elif b_cnt > 30000: status = "🟠 중간"; score = 4.5
+                elif b_cnt > 5000: status = "🟢 양호"; score = 7.5
+                else: status = "🔵 블루오션" if s_ratio > 0 else "🟢 양호"; score = 9.5 if s_ratio > 0 else 6.5
 
-                results_list.append({
-                    "시장성": status, "키워드": kw, "발행량": f"{b_cnt:,}건", 
-                    "검색강도(상대)": f"{s_ratio:.1f}%", "지수": score
-                })
-                
-                # 연관검색어 미리 추출
+                results_list.append({"시장성": status, "키워드": kw, "발행량": f"{b_cnt:,}건", "검색강도(상대)": f"{s_ratio:.1f}%", "지수": score})
                 related_data[kw] = get_naver_related_keywords(kw)
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 차트 및 리포트 출력
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
+            
+            # --- 그래프 수정: y축 범위 고정 (0~10) ---
             fig = px.bar(
                 df, x='키워드', y='지수', color='시장성',
                 color_discrete_map={"🔵 블루오션": "#0000FF", "🟢 양호": "#00FF00", "🟠 중간": "#FFA500", "🔴 레드오션": "#FF0000"},
-                title="🔍 키워드별 시장성 분석 리포트"
+                title="🔍 키워드별 시장성 분석 리포트",
+                range_y=[0, 10]  # 이 부분이 범위를 고정합니다.
             )
             st.plotly_chart(fig)
-            st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
             
-            # --- 연관검색어 리스트 출력 섹션 ---
+            # --- 연관검색어: 클릭 시 자동 복사 버튼 ---
             st.markdown("---")
-            st.subheader("🔗 네이버 연관검색어 리스트")
+            st.subheader("🔗 네이버 연관검색어 (클릭 시 자동 복사)")
             for kw in final_keywords:
-                with st.expander(f"📌 '{kw}' 관련 연관검색어 보기"):
-                    rel_list = related_data.get(kw, [])
-                    if rel_list:
-                        st.write(", ".join(rel_list))
-                        st.text_area(f"'{kw}' 연관검색어 복사", value=", ".join(rel_list), key=f"copy_{kw}")
-                    else:
-                        st.info("검색된 연관검색어가 없습니다.")
-            
+                rel_list = related_data.get(kw, [])
+                if rel_list:
+                    rel_text = ", ".join(rel_list)
+                    # st.copy_to_clipboard 기능을 사용하여 클릭 시 바로 복사
+                    st.write(f"📌 **{kw}**")
+                    st.copy_to_clipboard(rel_text, before_text="복사하기: ", after_text="✅ 복사 완료!")
+                    st.caption(rel_text)
+                    st.write("")
             st.balloons()
 
 # 5. 본문 프롬프트 생성기
@@ -226,3 +175,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
