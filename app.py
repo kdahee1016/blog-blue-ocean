@@ -13,14 +13,14 @@ st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
 st.title("🍀 오키랑의 키워드 분석")
 
 # 2. API 설정
-st.info("💡 API 키가 설정되었습니다. 바로 분석을 시작하실 수 있습니다.")
+st.info("💡 실행 후 웹 화면의 입력창에 ID와 Secret을 직접 붙여넣어 주세요.")
 col1, col2 = st.columns(2)
 with col1:
-    # 큰따옴표 안에 네이버에서 받은 Client ID를 복사해서 넣으세요.
-    c_id = st.text_input("Client ID", value="여기에_ID를_넣으세요")
+    # value="" 로 비워두어야 웹 화면에서 내가 입력한 값이 들어갑니다.
+    c_id = st.text_input("Client ID", value="", placeholder="네이버 ID 입력")
 with col2:
-    # 큰따옴표 안에 네이버에서 받은 Client Secret을 복사해서 넣으세요.
-    c_secret = st.text_input("Client Secret", value="여기에_Secret을_넣으세요", type="password")
+    # value="" 로 비워두어야 웹 화면에서 내가 입력한 값이 들어갑니다.
+    c_secret = st.text_input("Client Secret", value="", type="password", placeholder="네이버 Secret 입력")
 
 st.markdown("---")
 
@@ -175,6 +175,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
