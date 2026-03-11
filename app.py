@@ -1,3 +1,4 @@
+Python
 import streamlit as st
 import requests
 import json
@@ -16,15 +17,13 @@ st.title("🍀 오키랑의 키워드 분석")
 st.info("💡 실행 후 웹 화면의 입력창에 ID와 Secret을 직접 붙여넣어 주세요.")
 col1, col2 = st.columns(2)
 with col1:
-    # value="" 로 비워두어야 웹 화면에서 내가 입력한 값이 들어갑니다.
     c_id = st.text_input("Client ID", value="", placeholder="네이버 ID 입력")
 with col2:
-    # value="" 로 비워두어야 웹 화면에서 내가 입력한 값이 들어갑니다.
     c_secret = st.text_input("Client Secret", value="", type="password", placeholder="네이버 Secret 입력")
 
 st.markdown("---")
 
-# 3. 카테고리 설정 (전체 리스트 유지)
+# 3. 카테고리 설정
 category_map = {
     "패션의류": {"여성의류": "50000000", "여성언더웨어/잠옷": "50000167", "남성의류": "50000001", "아동의류": "50000002"},
     "패션잡화": {"신발": "50000003", "가방": "50000004", "지갑": "50000005", "벨트": "50000006", "선글라스/안경테": "50000007", "헤어액세서리": "50000008"},
@@ -72,44 +71,43 @@ if st.button("🚀 심층 분석 시작"):
         "Content-Type": "application/json"
     }
 
+    # [수정] 변수 초기화 위치를 버튼 클릭 직후로 이동하여 NameError 방지
+    final_keywords = []
+
     with st.spinner('선택하신 카테고리에 딱 맞는 키워드를 분석 중입니다...'):
-        final_keywords = []
-        search_name = sub_cat if sub_cat else "인기상품"
-        
-        # 1. 네이버 API 시도 (성공하면 상품명 가져오기)
-        url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
-        target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-        payload = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
-        
-        try:
-            res = requests.post(url, headers=headers, json=payload)
-            if res.status_code == 200:
-                raw_data = res.json().get('results', [{}])[0].get('data', [])
-                final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
-        except:
-            pass
-
-        # [핵심 수술] 카테고리별 맞춤형 연관 키워드 생성 로직
-        if not final_keywords:
-            st.info(f"💡 {search_name} 순위 집계 중... 맞춤형 연관 분석으로 전환합니다.")
+        if mode == "실시간 핫 키워드":
+            search_name = sub_cat if sub_cat else "인기상품"
+            url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
+            target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+            payload = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
             
-            # 카테고리 성격에 맞는 꼬리표(Suffix) 설정
-            if "여행" in search_name or "티켓" in search_name:
-                suffixes = ["가볼만한곳", "숙소 추천", "패키지", "가격", "예약", "명소", "당일치기", "1박2일", "코스", "꿀팁"]
-            elif "의류" in search_name or "패션" in search_name:
-                suffixes = ["코디", "사이즈", "추천", "브랜드", "신상", "데일리룩", "후기", "하객룩", "가성비", "쇼핑몰"]
-            elif "식품" in search_name or "음식" in search_name:
-                suffixes = ["밀키트", "대용량", "레시피", "칼로리", "맛있게 먹는 법", "추천", "후기", "유통기한", "보관법", "가성비"]
-            elif "육아" in search_name or "아동" in search_name:
-                suffixes = ["추천", "사이즈", "선물", "인기순위", "체험단", "내돈내산", "공구", "할인", "사용법", "신학기"]
-            else:
-                # 일반적인 경우
-                suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
-            
-            final_keywords = [f"{search_name} {s}" for s in suffixes]
+            try:
+                res = requests.post(url, headers=headers, json=payload)
+                if res.status_code == 200:
+                    raw_data = res.json().get('results', [{}])[0].get('data', [])
+                    final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
+            except:
+                pass
 
-        # 2. 블로그 지수 분석 및 그래프 출력
-if final_keywords:
+            if not final_keywords:
+                st.info(f"💡 {search_name} 순위 집계 중... 맞춤형 연관 분석으로 전환합니다.")
+                if "여행" in search_name or "티켓" in search_name:
+                    suffixes = ["가볼만한곳", "숙소 추천", "패키지", "가격", "예약", "명소", "당일치기", "1박2일", "코스", "꿀팁"]
+                elif "의류" in search_name or "패션" in search_name:
+                    suffixes = ["코디", "사이즈", "추천", "브랜드", "신상", "데일리룩", "후기", "하객룩", "가성비", "쇼핑몰"]
+                elif "식품" in search_name or "음식" in search_name:
+                    suffixes = ["밀키트", "대용량", "레시피", "칼로리", "맛있게 먹는 법", "추천", "후기", "유통기한", "보관법", "가성비"]
+                elif "육아" in search_name or "아동" in search_name:
+                    suffixes = ["추천", "사이즈", "선물", "인기순위", "체험단", "내돈내산", "공구", "할인", "사용법", "신학기"]
+                else:
+                    suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
+                
+                final_keywords = [f"{search_name} {s}" for s in suffixes]
+        else:
+            final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+
+        # 2. 블로그 지수 분석 및 그래프 출력 (버튼 클릭 스코프 안으로 정렬 완료)
+        if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
@@ -119,8 +117,6 @@ if final_keywords:
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                
-                # 지수가 높을수록(10점) 검색량이 적은 블루오션
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
@@ -130,25 +126,23 @@ if final_keywords:
 
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             
-            # [색상 반전] 0점(레드) = 빨강, 10점(블루) = 파랑
-            # 순서: 빨강(Red) -> 노랑(Yellow) -> 초록(Green) -> 파랑(Blue)
+            # [색상] 0점(레드) = 빨강, 10점(블루) = 파랑
             fig = px.bar(
                 df, x='키워드', y='블루오션지수',
                 color='블루오션지수',
                 color_continuous_scale=['#FF0000', '#FFFF00', '#00FF00', '#0000FF'], 
                 range_y=[0, 10],
-                title=f"🌊 {search_name} 블루오션 지수 (파란색일수록 경쟁이 적어요!)"
+                title=f"🌊 블루오션 지수 (파란색일수록 경쟁이 적어요!)"
             )
             st.plotly_chart(fig)
             
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True)
             st.balloons()
-                
-# 5. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
+
+# 5. 본문 프롬프트 생성기
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
-
 m_key = st.text_input("📍 메인 키워드", placeholder="메인 키워드를 입력하세요.")
 
 col_s1, col_s2 = st.columns(2)
@@ -184,4 +178,3 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
