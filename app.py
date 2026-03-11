@@ -145,7 +145,7 @@ if st.button("🚀 심층 분석 시작"):
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
         # 2. 결과 분석 및 출력
-if final_keywords:
+        if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
@@ -258,5 +258,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
