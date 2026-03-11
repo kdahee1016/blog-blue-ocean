@@ -68,64 +68,56 @@ if st.button("🚀 심층 분석 시작"):
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
 
-    if not clean_id or not clean_secret:
-        st.warning("⚠️ API 키를 입력해주세요!")
-    else:
-        headers = {
-            "X-Naver-Client-Id": clean_id,
-            "X-Naver-Client-Secret": clean_secret,
-            "Content-Type": "application/json"
-        }
-        final_keywords = []
+    headers = {
+        "X-Naver-Client-Id": clean_id,
+        "X-Naver-Client-Secret": clean_secret,
+        "Content-Type": "application/json"
+    }
 
-        with st.spinner('네이버 쇼핑의 진짜 알맹이를 탈탈 털어오는 중...'):
-            if mode == "실시간 핫 키워드":
-                success = False
-                # 5일 전부터 15일 전까지 안전하게 훑습니다.
-                for i in range(5, 16):
-                    target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
-                    
-                    # [핵심 수술] keyword 파라미터를 아예 비워서 카테고리 전체 인기순위를 요청합니다.
-                    payload = {
-                        "startDate": target_date,
-                        "endDate": target_date,
-                        "timeUnit": "date",
-                        "category": str(selected_category_id)
+    with st.spinner('데이터 추출 방식 전면 개편 중...'):
+        if mode == "실시간 핫 키워드":
+            # 400 에러 방지: 네이버가 요구하는 '최소 1개 이상의 키워드 객체'를 강제로 주입
+            # sub_cat이 비어있을 경우를 대비해 카테고리명을 기본값으로 설정
+            search_name = sub_cat if sub_cat else "인기상품"
+            
+            # 가장 데이터가 안정적인 1주일 전 날짜 하나만 타겟팅 (성공률 극대화)
+            target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+
+            payload = {
+                "startDate": target_date,
+                "endDate": target_date,
+                "timeUnit": "date",
+                "category": str(selected_category_id),
+                "keyword": [
+                    {
+                        "name": search_name,
+                        "param": [search_name]
                     }
-                    
-                    res = requests.post(
-                        "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
-                        headers=headers, 
-                        json=payload 
-                    )
-                    
-                    if res.status_code == 200:
-                        data = res.json()
-                        try:
-                            # 네이버 쇼핑인사이트의 표준 응답 구조를 샅샅이 뒤집니다.
-                            results = data.get('results', [])
-                            if results and isinstance(results, list):
-                                raw_items = results[0].get('data', [])
-                                if raw_items:
-                                    # 'name'이나 'group' 이름표를 가진 진짜 키워드들 추출
-                                    for item in raw_items[:20]:
-                                        val = item.get('name') or item.get('group') or item.get('keyword') or item.get('title')
-                                        if val:
-                                            final_keywords.append(val)
-                                    
-                                    if final_keywords:
-                                        success = True
-                                        st.success(f"✅ {target_date}의 '출산/육아' 인기 키워드 {len(final_keywords)}개를 찾았습니다!")
-                                        break
-                        except Exception:
-                            continue
-                    else:
-                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code}")
+                ]
+            }
 
-                if not success:
-                    st.error("⚠️ 카테고리 전체 데이터도 비어있습니다. API 설정 메뉴에서 '데이터랩(쇼핑인사이트)' 권한이 체크되어 있는지 다시 확인해 주세요!")
+            res = requests.post(
+                "https://openapi.naver.com/v1/datalab/shopping/category/keywords",
+                headers=headers,
+                json=payload
+            )
+
+            if res.status_code == 200:
+                data = res.json()
+                # 데이터 파싱 로직 (results -> data -> title 순서 고정)
+                try:
+                    raw_items = data['results'][0]['data']
+                    final_keywords = [item['title'] for item in raw_items[:15]]
+                    
+                    # 이후 블로그 검색량 조회 로직 실행...
+                    st.success(f"✅ {search_name} 관련 핫 키워드 추출 성공!")
+                    # (중략: 그래프 출력 로직)
+                except (KeyError, IndexError):
+                    st.error("⚠️ 네이버 응답 구조가 예상과 다릅니다. 데이터를 열어볼 수 없습니다.")
             else:
-                final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+                # 400 에러 시 네이버가 주는 진짜 이유를 화면에 출력
+                st.error(f"🚫 에러 발생: {res.status_code}")
+                st.info(f"상세 원인: {res.text}")
 
         # 결과 처리 (블로그 검색량 비교 및 리포트 출력)
         if final_keywords:
@@ -194,6 +186,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
