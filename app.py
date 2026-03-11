@@ -106,11 +106,16 @@ if st.button("🚀 심층 분석 시작"):
                             # results[0]['data'] 안에 우리가 찾는 'title'이 들어있습니다.
                             raw_data = data['results'][0].get('data', [])
                             if raw_data:
-                                # 지지부진한 에러를 끝낼 진짜 키워드들 추출!
-                                final_keywords = [item['title'] for item in raw_data[:15]]
-                                success = True
-                                st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 찾았습니다!")
-                                break
+                                # 네이버 API 버전에 따라 'keyword' 또는 'title'로 오는데, 둘 다 대응합니다.
+                                final_keywords = [item.get('keyword', item.get('title', '')) for item in raw_data[:15]]
+                                
+                                # 혹시 모를 빈 문자열 제거
+                                final_keywords = [k for k in final_keywords if k]
+                                
+                                if final_keywords:
+                                    success = True
+                                    st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 찾았습니다!")
+                                    break
                     else:
                         st.write(f"🔍 {target_date} 시도 중... (응답: {res.status_code})")
 
@@ -176,6 +181,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
