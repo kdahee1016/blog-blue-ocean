@@ -149,74 +149,74 @@ if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
-            # 1. 데이터 수집 루프 (키워드 하나씩 분석)
             for idx, kw in enumerate(final_keywords):
-                # 블로그 발행량 조회
+                # 1. 블로그 발행량 조회 (공급량)
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 0) if r_blog.status_code == 200 else 0
                 
-                # 검색 트렌드 조회
+                # 2. 검색 트렌드 조회 (상대적 수요)
                 url_trend = "https://openapi.naver.com/v1/datalab/search"
                 yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                 last_month = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-                
                 payload_trend = {
-                    "startDate": last_month,
-                    "endDate": yesterday,
-                    "timeUnit": "month",
+                    "startDate": last_month, "endDate": yesterday, "timeUnit": "month",
                     "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
                 }
-                
                 res_trend = requests.post(url_trend, headers=headers, json=payload_trend)
-                search_ratio = 0
+                s_ratio = 0
                 if res_trend.status_code == 200:
                     res_data = res_trend.json().get('results', [{}])[0].get('data', [])
-                    if res_data:
-                        search_ratio = res_data[0].get('ratio', 0)
+                    if res_data: s_ratio = res_data[0].get('ratio', 0)
 
-                # 통합 블루오션 지수 계산 (수요/공급 밸런스)
-                if b_cnt > 0:
-                    supply_score = math.log10(b_cnt) * 2.2 
-                    demand_score = (search_ratio / 50) 
-                    score = round(max(0.1, min(10.0, (10.0 - supply_score + demand_score))), 2)
-                else:
-                    score = 9.99
-
-                # 등급 판정
-                if score >= 8.5: grade = "💎 다이아몬드"
-                elif score >= 6.5: grade = "🥇 골드"
-                elif score >= 3.5: grade = "🥈 실버"
-                else: grade = "🥉 브론즈"
+                # 3. 전략적 등급 산출 (발행량 기반 판정)
+                # 수만 건 이상의 발행량은 검색량이 많아도 현실적으로 상위 노출이 어렵다는 점을 반영
+                if b_cnt > 100000: # 10만 건 이상
+                    status = "🔴 레드오션"
+                    score = 1.5
+                elif b_cnt > 30000: # 3만 건 ~ 10만 건
+                    status = "🟠 중간"
+                    score = 4.5
+                elif b_cnt > 5000: # 5천 건 ~ 3만 건
+                    status = "🟢 양호"
+                    score = 7.5
+                else: # 5천 건 미만 (진짜 틈새)
+                    if s_ratio > 0:
+                        status = "🔵 블루오션"
+                        score = 9.5
+                    else:
+                        status = "🟢 양호" # 검색은 적지만 써볼만한 곳
+                        score = 6.5
 
                 results_list.append({
-                    "등급": grade, 
+                    "시장성": status,
                     "키워드": kw, 
                     "발행량": f"{b_cnt:,}건", 
-                    "검색강도": f"{search_ratio:.1f}%",
-                    "블루오션지수": score, 
+                    "검색강도(상대)": f"{s_ratio:.1f}%",
+                    "지수": score,
                     "AI 제목": " | ".join(generate_ai_titles(kw))
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 2. 결과 데이터 정리 (for 루프 밖으로 한 칸 나오기!)
-            df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
+            # 4. 결과 출력 및 시각화
+            df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
             
-            # 3. 그래프 출력
+            # 그래프: 등급별 컬러 매핑
             fig = px.bar(
-                df, x='키워드', y='블루오션지수', color='블루오션지수',
-                color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'],
-                title=f"🌊 {search_name} 블루오션 통합 분석",
-                hover_data=['발행량', '검색강도']
+                df, x='키워드', y='지수', color='시장성',
+                color_discrete_map={
+                    "🔵 블루오션": "#0000FF", "🟢 양호": "#00FF00",
+                    "🟠 중간": "#FFA500", "🔴 레드오션": "#FF0000"
+                },
+                title="🔍 키워드별 시장성 분석 리포트"
             )
-            fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
             
-            # 4. 리포트 표 출력
             st.subheader("📑 실시간 블루오션 전략 리포트")
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            # 표에서도 동그라미가 보이게 출력
+            st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
             st.balloons()
             
             
@@ -258,4 +258,5 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
