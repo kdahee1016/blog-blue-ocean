@@ -65,6 +65,7 @@ def generate_ai_titles(keyword):
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
+    # ID와 Secret의 앞뒤 공백을 완벽히 제거합니다.
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
 
@@ -81,12 +82,12 @@ if st.button("🚀 심층 분석 시작"):
         with st.spinner('네이버 서버와 정밀 통신 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 데이터가 가장 확실히 존재하는 4일 전부터 10일 전까지 조회
+                # 데이터 집계가 확실한 4일 전부터 10일 전까지 조회
                 for i in range(4, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [최후의 보루] 네이버 공식 문서의 'keyword' 필수 객체 구조입니다.
-                    # sub_cat(예: 아동의류)을 검색 키워드로 활용하여 에러를 원천 차단합니다.
+                    # [핵심] 네이버가 요구하는 'keyword' 필수 객체 구조입니다.
+                    # 리스트 [] 안에 객체 {}가 들어가고, 그 안에 name과 param이 있어야 합니다.
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
@@ -100,41 +101,50 @@ if st.button("🚀 심층 분석 시작"):
                         ]
                     }
                     
-                    # 가장 에러가 적은 기본 엔드포인트 사용
+                    # 가장 안정적인 공식 엔드포인트 주소
                     res = requests.post(
                         "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
-                        json=payload # json= 을 써야 인코딩 에러가 없습니다.
+                        json=payload  # json 파라미터를 쓰면 requests가 알아서 형식을 맞춥니다.
                     )
                     
                     if res.status_code == 200:
                         data = res.json()
                         if 'results' in data and data['results'][0].get('data'):
-                            # 해당 카테고리 연관 키워드 추출
+                            # 해당 카테고리에서 가장 핫한 연관 키워드 추출
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
                             st.write(f"✅ {target_date} 데이터 분석 성공!")
                             break
                     else:
-                        # 실패 원인 상세 출력 (400 에러 내용 확인용)
+                        # 에러 발생 시 로그 출력 (디버깅용)
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 형식을 맞췄으나 실패했습니다. ID/Secret에 오타가 없는지 한 번만 더 봐주세요!")
+                    st.error("⚠️ 모든 형식을 맞췄으나 실패했습니다. ID/Secret 복사 시 공백이 섞였는지 다시 확인해주세요!")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 및 리포트 (이하 동일)
+            # 결과 처리 (블로그 검색량 비교 및 리포트)
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
+                    # 블로그 조회 (이건 일반 검색 API라 매우 안정적입니다)
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
+                    
+                    # 블루오션 지수 계산
                     score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
-                    results.append({"키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
+                    
+                    results.append({
+                        "키워드": kw, 
+                        "블루오션지수": score, 
+                        "AI 제목 추천": " | ".join(generate_ai_titles(kw))
+                    })
                     p_bar.progress((idx + 1) / len(final_keywords))
 
+                # 리포트 출력
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
                 st.subheader("📑 AI 전략 리포트")
@@ -179,6 +189,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
