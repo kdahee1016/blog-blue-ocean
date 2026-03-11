@@ -49,54 +49,41 @@ if mode == "실시간 핫 키워드":
     sub_cat = st.selectbox("🔍 하위 카테고리 선택", list(category_map[main_cat].keys()))
     selected_category_id = category_map[main_cat][sub_cat]
 else:
-    user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "기아타이거즈, 캠핑, 아이랑 갈만한곳")
+    user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집, 하남 스타필드")
 
-# AI 제목 생성 함수
 def generate_ai_titles(keyword):
     patterns = [
         f"이번 주말에 다녀온 {keyword}, 솔직히 말해서 '이거' 하나는 좀 별로였어요",
-        f"드디어 다녀온 {keyword}! 광고 말고 진짜 찐후기 궁금하신 분?",
-        f"아이랑 {keyword} 갈 때 '이 때'에 가야 줄 안 서고 들어갑니다",
-        f"엄마들이 자꾸 물어보는 {keyword} 정보, 한 페이지로 끝내 드릴게요",
-        f"실패 없는 {keyword}를 위한 현실적인 조언 (주차, 꿀팁)",
-        f"{keyword} 방문 예정이라면 꼭 알아야 할 내용 체크"
+        f"드디어 다녀온 {keyword}! 광고 말고 진짜 찐후기 궁금하신 분들을 위해 준비함",
+        f"아이랑 {keyword} 갈 때 '이 시간'에 가야 줄 안 서고 바로 들어갑니다 (꿀팁)",
+        f"엄마들이 자꾸 물어보는 {keyword} 정보, 이 포스팅 하나로 정리 끝낼게요",
+        f"실패 없는 {keyword} 방문을 위한 현실적인 조언 (주차, 동선, 명당자리)",
+        f"{keyword} 방문 예정이라면 꼭 알아야 할 '의외의' 준비물 3가지",
+        f"요즘 핫한 {keyword}, 소문만큼 정말 좋을까? 내돈내산 가감 없는 후기",
+        f"아이와 함께 {keyword} 200% 즐기는 법! (부모님 체력 아끼는 코스 추천)",
+        f"{keyword} 가기 전 필독! 모르면 손해보는 할인 정보와 입장 팁",
+        f"직접 가보고 느낀 {keyword} 명당 자리! 명당 잡으려면 몇 시까지 가야 할까?",
+        f"{keyword} 근처 맛집까지 싹 정리! 아이랑 가기 좋은 완벽한 하루 코스"
     ]
-    return random.sample(patterns, 1)
+    return random.sample(patterns, 3)
 
 # 5. 분석 실행
 if st.button("🚀 심층 분석 시작"):
     if not c_id or not c_secret:
-        st.warning("⚠️ 네이버 API ID와 Secret을 먼저 입력해주세요!")
+        st.warning("⚠️ API 키를 먼저 입력해주세요!")
     else:
         headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
-        
-        final_keywords = []
-        if mode == "실시간 핫 키워드":
-            t_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
-            res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
-                                headers=headers, data=json.dumps({"startDate": t_date, "endDate": t_date, "timeUnit": "date", "category": str(selected_category_id)}))
-            if res.status_code == 200:
-                final_keywords = [item['title'] for item in res.json()['results'][0]['data'][:15]]
-        else:
-            final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+        final_keywords = [k.strip() for k in user_input.split(",") if k.strip()] if mode == "직접 입력" else []
 
         if final_keywords:
             results = []
-            progress_bar = st.progress(0)
-            
-            for idx, kw in enumerate(final_keywords):
-                # 블로그 개수 조회 (encoded 처리)
-                encoded_kw = urllib.parse.quote(kw)
-                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={encoded_kw}&display=1", headers=headers)
+            for kw in final_keywords:
+                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
-                # 검색 비율 조회
-                s_body = {
-                    "startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), 
-                    "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), 
-                    "timeUnit": "date", 
-                    "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
-                }
+                s_body = {"startDate": (datetime.now()-timedelta(days=31)).strftime('%Y-%m-%d'), 
+                          "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), 
+                          "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                 res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                 
                 ratio = 0.0001
@@ -106,48 +93,36 @@ if st.button("🚀 심층 분석 시작"):
                         if n_data: ratio = n_data[-1]['ratio']
                     except: pass
                 
-                # 지수 계산 (현실 반영 보정 버전)
-                if b_cnt > 0 and ratio > 0:
-                    # 블로그 수가 10,000개 이상이면 점수를 더 깎는 로직 추가
-                    penalty = math.log10(b_cnt) * 0.5 
+                # --- 현실 반영 지수 보정 로직 (Indentation 교정 완료) ---
+                if b_cnt > 0 and ratio > 0.0001:
+                    # 블로그 수가 많을수록 패널티를 주어 점수 인플레이션 방지
+                    penalty = math.log10(b_cnt) * 0.6
                     raw_score = (ratio / b_cnt) * 1000000
-                    # 기본 배수를 2.5에서 2.0으로 낮춰서 점수 인플레이션 방지
-                    score = (math.log10(raw_score + 1) * 2.0) - penalty
-                    score = max(0.0, min(10.0, score)) # 0~10점 사이로 고정
-               else:
+                    score = (math.log10(raw_score + 1) * 2.2) - penalty
+                    score = max(0.0, min(10.0, score))
+                else:
                     score = 0.0
 
+                recommended_titles = generate_ai_titles(kw)
                 results.append({
                     "키워드": kw, 
                     "블루오션지수": round(score, 2), 
-                    "AI 제목 추천": generate_ai_titles(kw)[0],
+                    "AI 제목 추천": " | ".join(recommended_titles),
                     "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                 })
-                progress_bar.progress((idx + 1) / len(final_keywords))
 
             if results:
-                # 점수 기준으로 정렬하여 출력
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
-
-                st.markdown("### 💡 블루오션 지수 판독 가이드")
-                guide = pd.DataFrame({
-                    "점수": ["8.0~10.0", "5.0~7.9", "3.0~4.9", "0.0~2.9"], 
-                    "등급": ["💎 다이아몬드", "✅ 골드", "⚠️ 실버", "❌ 레드"], 
-                    "의미": ["초특급 블루오션!", "할만한 시장!", "보통 경쟁", "치열한 레드오션"]
-                })
-                st.table(guide)
-
+                
                 st.subheader("📈 키워드 시장성 분석 결과")
-                custom_scale = [[0, 'red'], [0.5, 'yellow'], [1, 'blue']]
                 fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
                              range_y=[0, 10], range_color=[0, 10],
-                             color_continuous_scale=custom_scale,
-                             labels={'블루오션지수': '점수'})
+                             color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']])
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_{random.randint(1,999)}")
+                st.plotly_chart(fig, use_container_width=True)
 
                 st.subheader("📑 AI 전략 리포트")
-                st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("검색하기")}, use_container_width=True)
+                st.dataframe(df, use_container_width=True)
 
 # 6. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
@@ -188,5 +163,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
