@@ -79,12 +79,13 @@ if st.button("🚀 심층 분석 시작"):
                 for i in range(3, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [진짜 해결책] category를 반드시 문자열(str)로 감싸야 합니다.
+                    # [최종 해결책] keyword 필드 추가 및 category 문자열 유지
                     s_body = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
-                        "category": str(selected_category_id), # int를 str로 변경!
+                        "category": str(selected_category_id), 
+                        "keyword": "",  # [필수] 이 필드가 없어서 에러가 났던 겁니다!
                         "device": "", 
                         "gender": "", 
                         "ages": []
@@ -107,11 +108,11 @@ if st.button("🚀 심층 분석 시작"):
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 데이터 수집 실패. 카테고리 형식을 다시 확인했습니다.")
+                    st.error("⚠️ 데이터 수집 실패. API 권한 설정 또는 필수 필드를 다시 확인해주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 리스트와 리포트 출력 (이종호님의 AI 전략 리포트 포함)
+            # 결과 리스트와 리포트 출력
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
@@ -179,6 +180,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
