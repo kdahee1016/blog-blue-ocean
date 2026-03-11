@@ -124,24 +124,24 @@ if st.button("🚀 심층 분석 시작"):
             st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
             
             # --- 연관검색어 리스트 (st.code 활용으로 자동 복사 구현) ---
-            st.markdown("---")
-            st.subheader("🔗 네이버 연관검색어 (단어를 클릭하면 개별 복사됩니다)")
+st.markdown("---")
+            st.subheader("🔗 네이버 연관검색어 (단어별 아이콘 클릭 시 복사)")
             
             for kw in final_keywords:
                 rel_list = related_data.get(kw, [])
                 st.write(f"📌 **{kw}**")
                 
                 if rel_list:
-                    # 단어들을 가로로 나열하기 위해 컬럼 사용 (최대 5개씩 끊어서 표시)
-                    # 혹은 간단하게 개별 버튼을 생성
-                    cols = st.columns(5) # 한 줄에 5개씩 버튼 배치
+                    # 사용자님이 하나씩 복사하기 편하도록 단어마다 개별 코드박스 생성
+                    # 한 줄에 너무 길게 나오지 않도록 3개씩 칸을 나눠서 배치합니다.
+                    word_cols = st.columns(3) 
                     for i, rel_kw in enumerate(rel_list):
-                        with cols[i % 5]:
-                            # 단어별로 클릭 시 복사 기능 제공
-                            st.copy_to_clipboard(rel_kw, before_text=f"{rel_kw}", after_text="✅")
-                    st.write("") # 간격 조절
+                        with word_cols[i % 3]:
+                            # st.code는 구버전에서도 우측 상단 복사 버튼이 자동 생성됩니다.
+                            st.code(rel_kw, language=None)
                 else:
                     st.caption("관련된 연관검색어가 없습니다.")
+                st.write("") # 키워드 간 간격 확보
             
             st.balloons()
 
@@ -183,6 +183,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
