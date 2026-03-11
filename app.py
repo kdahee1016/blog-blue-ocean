@@ -74,44 +74,45 @@ if st.button("🚀 심층 분석 시작"):
         "Content-Type": "application/json"
     }
 
-    with st.spinner('네이버 쇼핑의 진짜 알맹이를 탈탈 털어오는 중...'):
+    with st.spinner('네이버 쇼핑 1위~20위 진짜 상품명을 털어오는 중...'):
         final_keywords = []
         
         if mode == "실시간 핫 키워드":
+            # [핵심 변경] 주소를 'top100' 전용 통로로 바꿉니다.
+            # 이 주소는 카테고리 내에서 진짜 사람들이 많이 찾는 '상품명'을 줍니다.
+            url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
+            
+            # top100 API는 keyword 파라미터 없이 날짜와 카테고리만 넣으면 됩니다.
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-            # 사용자가 선택한 하위 카테고리명을 검색어로 사용합니다.
-            search_name = sub_cat if sub_cat else "인기상품"
             
             payload = {
                 "startDate": target_date,
                 "endDate": target_date,
                 "timeUnit": "date",
-                "category": str(selected_category_id),
-                "keyword": [{"name": search_name, "param": [search_name]}]
+                "category": str(selected_category_id)
             }
 
-            res = requests.post(
-                "https://openapi.naver.com/v1/datalab/shopping/category/keywords",
-                headers=headers,
-                json=payload
-            )
+            res = requests.post(url, headers=headers, json=payload)
 
             if res.status_code == 200:
                 data = res.json()
                 try:
+                    # top100 API의 데이터 경로는 results -> data 입니다.
                     results = data.get('results', [])
                     if results:
                         raw_items = results[0].get('data', [])
-                        # 네이버가 준 인기 키워드 리스트가 있다면 담습니다.
-                        final_keywords = [item.get('title') for item in raw_items[:20] if item.get('title')]
+                        # 드디어 '트위드 자켓' 같은 상품명이 'title'로 들어옵니다!
+                        final_keywords = [item.get('group') for item in raw_items[:20] if item.get('group')]
                 except:
                     pass
 
-            # [핵심 수술] 네이버가 순위를 안 주면? 내가 선택한 카테고리명을 직접 분석 대상으로 삼습니다!
+            # 만약 이 통로마저 비어있다면 (권한 문제 등), 마지막으로 카테고리명 분석
             if not final_keywords:
-                st.info(f"💡 {search_name} 카테고리의 직접 분석을 시작합니다.")
-                # '가성비' 같은 가짜 대신, 실제 사용자가 고른 '진짜 카테고리명'을 키워드로 씁니다.
-                final_keywords = [search_name] 
+                search_name = sub_cat if sub_cat else "인기상품"
+                st.info(f"💡 현재 {search_name} 순위 집계 중입니다. 카테고리명 분석으로 대체합니다.")
+                final_keywords = [search_name]
+            else:
+                st.success(f"✅ 실시간 인기 상품 {len(final_keywords)}개를 발견했습니다!")
 
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -120,14 +121,11 @@ if st.button("🚀 심층 분석 시작"):
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
-            
             for idx, kw in enumerate(final_keywords):
-                # 블로그 검색량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
-                # 실제 블로그 개수를 가져옵니다.
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
@@ -138,7 +136,6 @@ if st.button("🚀 심층 분석 시작"):
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 결과 리포트 출력
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
             st.subheader("📑 실시간 블루오션 전략 리포트")
@@ -184,5 +181,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
 
