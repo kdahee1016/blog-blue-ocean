@@ -106,9 +106,16 @@ if st.button("🚀 심층 분석 시작"):
                         if n_data: ratio = n_data[-1]['ratio']
                     except: pass
                 
-                # 블루오션 지수 (순서에 상관없이 오직 수치로만 계산)
-                raw_score = (ratio / b_cnt) * 1000000
-                score = min(10.0, math.log10(raw_score + 1) * 2.5) if ratio > 0.0001 else 0.0
+                # 지수 계산 (현실 반영 보정 버전)
+                if b_cnt > 0 and ratio > 0:
+                    # 블로그 수가 10,000개 이상이면 점수를 더 깎는 로직 추가
+                    penalty = math.log10(b_cnt) * 0.5 
+                    raw_score = (ratio / b_cnt) * 1000000
+                    # 기본 배수를 2.5에서 2.0으로 낮춰서 점수 인플레이션 방지
+                    score = (math.log10(raw_score + 1) * 2.0) - penalty
+                    score = max(0.0, min(10.0, score)) # 0~10점 사이로 고정
+               else:
+                   score = 0.0
 
                 results.append({
                     "키워드": kw, 
@@ -181,3 +188,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
