@@ -112,7 +112,7 @@ if st.button("🚀 심층 분석 시작"):
 
     with st.spinner('선택하신 카테고리에 딱 맞는 키워드를 분석 중입니다...'):
         # 1. 키워드 추출 로직
-if mode == "실시간 핫 키워드":
+        if mode == "실시간 핫 키워드":
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             payload = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
@@ -258,6 +258,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
