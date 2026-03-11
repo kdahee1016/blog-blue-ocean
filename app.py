@@ -1,11 +1,3 @@
-이종호님, 정말 죄송합니다! 제가 직접 입력 방식으로 코드를 간소화해 드리는 과정에서 가장 중요한 프롬프트 생성기 부분을 그만 놓쳤네요. ㅠㅠ
-
-다시 작업하실 필요 없게, 이전의 이모티콘들과 스토리텔링 설정, 그리고 0~10점 지수/색상 로직까지 모두 합친 '진짜 최종' 전체 코드를 준비했습니다.
-
-이 코드는 secrets.toml 없이, 화면 상단에 ID와 Secret을 직접 넣으시면 바로 작동합니다. 이번에는 누락된 것 없이 꽉꽉 채웠으니 안심하고 통째로 덮어쓰기 해주세요!
-
-🛠️ [진짜 최종 완결판] 직접 입력 + 지수 보정 + 프롬프트 생성기
-Python
 import streamlit as st
 import requests
 import json
@@ -20,7 +12,7 @@ import math
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
 st.title("🍀 오키랑의 키워드 분석")
 
-# 2. API 설정 (직접 입력 방식 - 번거로운 설정 파일 없이 바로 입력!)
+# 2. API 설정 (직접 입력 방식)
 st.info("💡 네이버 개발자 센터에서 발급받은 ID와 Secret을 입력하고 분석을 시작하세요.")
 col1, col2 = st.columns(2)
 with col1:
@@ -36,28 +28,37 @@ target_gender = st.sidebar.selectbox("성별", ["전체", "여성 (f)", "남성 
 gender_code = "" if target_gender == "전체" else target_gender.split("(")[1][0]
 target_ages = st.sidebar.multiselect("연령대", ["10", "20", "30", "40", "50", "60"], default=[])
 
-# 4. 분석 모드 선택
+# 4. 분석 모드 (카테고리 맵 전체 복구)
+category_map = {
+    "패션의류": {"여성의류": "50000000", "여성언더웨어/잠옷": "50000167", "남성의류": "50000001", "남성언더웨어/잠옷": "50000168", "아동의류": "50000002"},
+    "패션잡화": {"신발": "50000003", "가방": "50000004", "지갑": "50000005", "벨트": "50000006", "선글라스/안경테": "50000007", "헤어액세서리": "50000008"},
+    "화장품/미용": {"스킨케어": "50000009", "메이크업": "50000010", "헤어케어": "50000011", "바디케어": "50000012", "향수": "50000013", "네일케어": "50000014"},
+    "디지털/가전": {"주방가전": "50000015", "생활가전": "50000016", "계절가전": "50000017", "영상가전": "50000018", "음향가전": "50000019", "PC/노트북": "50000020"},
+    "가구/인테리어": {"침실가구": "50000021", "거실가구": "50000022", "주방가구": "50000023", "침구단품": "50000024", "커튼/블라인드": "50000025", "인테리어소품": "50000026"},
+    "출산/육아": {"분유/기저귀/물티슈": "50000027", "유아동의류": "50000028", "유아동잡화": "50000029", "장난감/완구": "50000030", "임산부용품": "50000031", "유아외출용품": "50000032"},
+    "식품": {"농산물": "50000033", "축산물": "50000034", "수산물": "50000035", "가공식품": "50000036", "건강식품": "50000037", "음료": "50000038"},
+    "스포츠/레저": {"등산": "50000039", "캠핑": "50000040", "낚시": "50000041", "골프": "50000042", "자전거": "50000043", "헬스": "50000044"},
+    "생활/건강": {"주방용품": "50000045", "생활용품": "50000046", "욕실용품": "50000047", "문구/사무용품": "50000048", "반려동물": "50000049", "공구": "50000050"},
+    "여가/생활편의": {"국내여행/티켓": "50000051", "해외여행/티켓": "50000052", "문화/예매권": "50000053", "렌탈서비스": "50000054", "생활편의": "50000055"}
+}
+
 mode = st.radio("분석 방식 선택", ["직접 입력", "실시간 핫 키워드"])
 
 if mode == "실시간 핫 키워드":
-    category_map = {
-        "패션의류": "50000000", "패션잡화": "50000001", "화장품/미용": "50000002",
-        "디지털/가전": "50000003", "가구/인테리어": "50000004", "출산/육아": "50000005",
-        "식품": "50000006", "스포츠/레저": "50000007", "생활/건강": "50000008"
-    }
-    selected_name = st.selectbox("📂 대분류 선택", list(category_map.keys()))
-    selected_category_id = category_map[selected_name]
+    main_cat = st.selectbox("📂 대분류 선택", list(category_map.keys()))
+    sub_cat = st.selectbox("🔍 하위 카테고리 선택", list(category_map[main_cat].keys()))
+    selected_category_id = category_map[main_cat][sub_cat]
 else:
     user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "기아타이거즈, 캠핑, 아이랑 갈만한곳")
 
-# AI 제목 생성 함수 (기존 패턴 유지)
+# AI 제목 생성 함수
 def generate_ai_titles(keyword):
     patterns = [
         f"이번 주말에 다녀온 {keyword}, 솔직히 말해서 '이거' 하나는 좀 별로였어요",
         f"드디어 다녀온 {keyword}! 광고 말고 진짜 찐후기 궁금하신 분?",
         f"아이랑 {keyword} 갈 때 '이 때'에 가야 줄 안 서고 들어갑니다",
         f"엄마들이 자꾸 물어보는 {keyword} 정보, 한 페이지로 끝내 드릴게요",
-        f"실패 없는 {keyword}를 위한 현실적인 조언 (비용, 동선, 주차)",
+        f"실패 없는 {keyword}를 위한 현실적인 조언 (주차, 꿀팁)",
         f"{keyword} 방문 예정이라면 꼭 알아야 할 내용 체크"
     ]
     return random.sample(patterns, 1)
@@ -84,11 +85,11 @@ if st.button("🚀 심층 분석 시작"):
             progress_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # [A] 블로그 개수 조회
+                # 블로그 개수 조회
                 r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
-                # [B] 검색 비율 조회
+                # 검색 비율 조회
                 s_body = {"startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                 res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                 
@@ -99,7 +100,7 @@ if st.button("🚀 심층 분석 시작"):
                         if n_data: ratio = n_data[-1]['ratio']
                     except: pass
                 
-                # [C] 블루오션 지수 (0~10점 변별력 강화 공식)
+                # 블루오션 지수 (0~10점 변별력 강화)
                 raw_score = (ratio / b_cnt) * 1000000
                 score = min(10.0, math.log10(raw_score + 1) * 2.5) if raw_score > 0 else 0.0
 
@@ -112,7 +113,6 @@ if st.button("🚀 심층 분석 시작"):
             if results:
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
 
-                # 판독 가이드 표 출력
                 st.markdown("### 💡 블루오션 지수 판독 가이드")
                 guide = pd.DataFrame({
                     "점수": ["8.0~10.0", "5.0~7.9", "3.0~4.9", "0.0~2.9"], 
@@ -121,7 +121,6 @@ if st.button("🚀 심층 분석 시작"):
                 })
                 st.table(guide)
 
-                # 그래프 출력 (색상 고정: 파랑-노랑-빨강)
                 st.subheader("📈 키워드 시장성 분석 결과")
                 custom_scale = [[0, 'red'], [0.5, 'yellow'], [1, 'blue']]
                 fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
@@ -134,7 +133,7 @@ if st.button("🚀 심층 분석 시작"):
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("검색하기")}, use_container_width=True)
 
-# 6. 본문 프롬프트 생성기 (이종호님의 소중한 프롬프트 내용 복구!)
+# 6. 본문 프롬프트 생성기
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
 
@@ -152,12 +151,11 @@ with col_s2:
 sub_keys = [k for k in [s_key1, s_key2, s_key3, s_key4, s_key5] if k.strip()]
 sub_keys_str = ", ".join(sub_keys) if sub_keys else "(없음)"
 
-# 이종호님이 원하셨던 그 말투와 이모티콘 그대로!
 final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
  - 서브키워드 [{sub_keys_str}]은 2회씩 본문에 잘 녹아들도록 자연스럽게 넣어줘.
  - 본문 작성 시 블로그에 맞는 톤앤매너를 지켜주고
  - 말투는 30대 여자가 작성하는 ~했음, ~했다, 혼잣말 느낌 등의 편안한 일기형 말투를 섞어서 작성
- - 긴 문장이라도 한 줄에 공백포함 최대 60~70byte로 자연스럽게 끊어서 작성해줘. (모바일 가독성)
+ - 긴 문장이라도 한 줄에 공백포함 최대 60~70byte로 자연스럽게 끊어서 작성해줘.
  - 본문 전체는 자연스러운 스토리텔링으로 한글 기준 약 3,500자로 맞춰줘.
  - 글 곳곳에 아래 이모티콘 중 5~6개 정도 활용해줘,
 !(•̀ᴗ•́)و ̑̑ / (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ / (୨୧ ❛ᴗ❛)✧ / (୨୧ •͈ᴗ•͈) / (•̆ꈊ•̆ ) / (ꈍᴗꈍ)♡ / - ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- / ٩(*•̀ᴗ•́*)و / ٩( ᐢ-ᐢ )و / ٩(๑❛ᴗ❛๑)۶♡ / ٩(◕ᗜ◕)و / ദ്디( ¯꒳¯ ) / ☆٩(｡•ω<｡)﻿و / :) / :D / >_< / +ㅂ+ 
