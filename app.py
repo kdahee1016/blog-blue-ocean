@@ -82,8 +82,8 @@ if st.button("🚀 심층 분석 시작"):
         with st.spinner('네이버 서버와 정밀 통신 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 데이터 집계가 확실한 4일 전부터 10일 전까지 조회
-                for i in range(4, 11):
+                # 데이터 집계가 확실한 5일 전부터 조회
+                for i in range(5, 15):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
                     # [최종병기] 네이버 공식 문서의 샘플 구조와 100% 일치시켰습니다.
@@ -192,6 +192,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
