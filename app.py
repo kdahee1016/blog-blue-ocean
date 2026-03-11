@@ -78,9 +78,9 @@ if st.button("🚀 심층 분석 시작"):
         final_keywords = []
         
         if mode == "실시간 핫 키워드":
-            # 1주일 전 데이터가 가장 정확합니다.
+            # 데이터 집계가 확실한 7일 전으로 설정
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-            # 선택된 하위 카테고리명이 없으면 대분류명이라도 씁니다.
+            # 검색어가 비어있으면 안 되므로 카테고리명을 기본 키워드로 주입
             search_name = sub_cat if sub_cat else "인기상품"
             
             payload = {
@@ -88,7 +88,7 @@ if st.button("🚀 심층 분석 시작"):
                 "endDate": target_date,
                 "timeUnit": "date",
                 "category": str(selected_category_id),
-                "keyword": []
+                "keyword": [{"name": search_name, "param": [search_name]}] # 필수!
             }
 
             res = requests.post(
@@ -100,41 +100,44 @@ if st.button("🚀 심층 분석 시작"):
             if res.status_code == 200:
                 data = res.json()
                 try:
+                    # 네이버 쇼핑 인사이트의 표준 데이터 경로는 results[0]['data'] 입니다.
                     results = data.get('results', [])
                     if results:
                         raw_items = results[0].get('data', [])
-                        # 모든 이름표(name, group, keyword, title) 다 훑기
+                        # 데이터가 존재할 경우 키워드(title) 추출
                         final_keywords = [
-                            item.get('name') or item.get('group') or item.get('keyword') or item.get('title') 
+                            item.get('title') or item.get('name') or item.get('group')
                             for item in raw_items[:20]
                         ]
                         final_keywords = [k for k in final_keywords if k]
                 except:
                     pass
 
-            # [핵심 안전장치] 만약 네이버가 빈 보따리를 주면, 카테고리명 기반으로 키워드 자동 생성
+            # [핵심] 네이버가 정말로 데이터를 안 줄 때만 안전장치 가동
             if not final_keywords:
                 st.warning(f"⚠️ 네이버 {search_name} 데이터가 비어있어, 연관 키워드로 자동 전환합니다.")
-                # 카테고리명을 기반으로 분석해볼만한 키워드 3개를 강제로 생성합니다.
                 final_keywords = [search_name, f"{search_name} 추천", f"가성비 {search_name}"]
+            else:
+                st.success(f"✅ {search_name} 카테고리에서 진짜 핫 키워드 {len(final_keywords)}개를 찾았습니다!")
 
         else:
+            # 수동 입력 모드
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-        # --- 그래프 출력 로직 (이 부분이 무조건 실행됩니다!) ---
+        # --- 그래프 출력 로직 (키워드가 있을 때 실행) ---
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # 블로그 검색량 조회 (이종호님의 사용량이 여기서 올라갑니다!)
+                # 블로그 검색량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
-                # 블루오션 지수 계산
+                # 블루오션 지수 계산 (수식 유지)
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
@@ -190,6 +193,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
