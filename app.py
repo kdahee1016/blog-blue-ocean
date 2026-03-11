@@ -140,111 +140,63 @@ def generate_ai_titles(keyword):
     ]
     return random.sample(patterns, 5)
 
-# 5. 분석 시작
-# 5. 분석 시작 (에러 방지 및 수치 변별력 강화 버전)
+# 5. 분석 시작 (데이터 검증 모드)
 if st.button("🚀 심층 분석 및 AI 제목 생성"):
     if not c_id or not c_secret:
-        st.error("🔐 네이버 API 키를 먼저 입력해주세요!")
+        st.error("🔐 API 키를 먼저 확인해주세요!")
     else:
-        headers = {
-            "X-Naver-Client-Id": c_id, 
-            "X-Naver-Client-Secret": c_secret, 
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
+        final_keywords = [k.strip() for k in user_input.split(",") if k.strip()] if mode == "직접 입력" else []
         
-        # 이전 결과 초기화 및 검색어 준비
-        final_keywords = []
+        # (실시간 모드 생략 - 직접 입력 테스트 우선)
         if mode == "실시간 핫 키워드":
             target_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
-            url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
-            body = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
-            res = requests.post(url, headers=headers, data=json.dumps(body))
+            res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", headers=headers, data=json.dumps({"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}))
             if res.status_code == 200:
-                data = res.json()
-                if "results" in data:
-                    final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
-        else:
-            final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+                final_keywords = [item['title'] for item in res.json()['results'][0]['data'][:15]]
 
         if final_keywords:
             results = []
-            status_text = st.empty() # 상태 메시지용
-            
             for kw in final_keywords:
-                status_text.text(f"🔍 '{kw}' 분석 중...")
+                # 1. 블로그 개수
+                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
+                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
-                # [1] 블로그 수 수집
-                def get_blog_cnt(t_kw):
-                    encoded = urllib.parse.quote(t_kw)
-                    r = requests.get(f"https://openapi.naver.com/v1/search/blog?query={encoded}&display=1", headers=headers)
-                    return r.json().get('total', 0) if r.status_code == 200 else 0
-                
-                blog_count = max(get_blog_cnt(kw), 1)
-
-                # [2] 검색 비율 수집 (최근 30일 데이터)
-                s_body = {
-                    "startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), 
-                    "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), 
-                    "timeUnit": "date", 
-                    "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
-                }
+                # 2. 검색 비율 (가장 중요!)
+                s_body = {"startDate": "2026-02-10", "endDate": "2026-03-10", "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                 res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                 
-                now_ratio = 0.001
+                raw_ratio = 0.0 # 초기화
                 if res_now.status_code == 200:
                     try:
-                        n_data = res_now.json()['results'][0]['data']
-                        if n_data: now_ratio = n_data[-1]['ratio'] # 가장 최근 날짜의 비율
-                    except: pass
-
-                # [3] 블루오션 지수 계산 (변별력 강화 공식)
-                # 검색비율이 아주 낮아도 점수가 차이나도록 튜닝했습니다.
-                raw_score = (now_ratio / blog_count) * 1000000
-                if raw_score > 0:
-                    # 점수가 3~4점에 몰리지 않게 로그 상수를 2.2로 높였습니다.
-                    final_score = math.log10(raw_score + 1) * 2.2
-                    final_score = min(10.0, final_score)
-                else:
-                    final_score = 0.0
+                        raw_ratio = res_now.json()['results'][0]['data'][-1]['ratio']
+                    except: raw_ratio = 0.5 # 데이터 없을 때 임시값
+                
+                # 3. 지수 계산
+                # 만약 raw_ratio가 계속 0.5라면 API 권한 문제일 수 있습니다.
+                score = min(10.0, math.log10((raw_ratio / b_cnt) * 1000000 + 1) * 2.2) if raw_ratio > 0 else 0.0
 
                 results.append({
                     "키워드": kw,
-                    "블루오션지수": round(final_score, 2),
-                    "AI 제목 추천": generate_ai_titles(kw)[0], 
-                    "상세보기": f"https://search.naver.com/search.naver?query={kw}"
+                    "블루오션지수": round(score, 2),
+                    "실제비율": raw_ratio, # 검증용
+                    "블로그수": b_cnt,      # 검증용
+                    "AI 제목 추천": generate_ai_titles(kw)[0]
                 })
-
-            status_text.empty() # 분석 완료 후 메시지 삭제
 
             if results:
-                df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
+                df = pd.DataFrame(results)
                 
-                # --- 가이드 표 ---
-                st.markdown("### 💡 블루오션 지수 판독 가이드")
-                guide_df = pd.DataFrame({
-                    "점수": ["8.0~10.0", "5.0~7.9", "3.0~4.9", "0.0~2.9"],
-                    "등급": ["💎 다이아몬드", "✅ 골드", "⚠️ 실버", "❌ 레드"],
-                    "의미": ["초특급 블루오션!", "유입 보장!", "평범한 경쟁", "치열한 레드오션"]
-                })
-                st.table(guide_df)
-                
-                # --- 그래프 (중복 에러 방지를 위해 key 추가) ---
+                # 그래프 출력
                 st.subheader("📈 키워드별 시장성 분석")
-                custom_colors = [[0.0, "red"], [0.5, "yellow"], [1.0, "blue"]]
-                
-                fig = px.bar(
-                    df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
-                    range_y=[0, 10], range_color=[0, 10],
-                    color_continuous_scale=custom_colors,
-                    labels={'블루오션지수': '점수'}
-                )
-                fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-                
-                # 여기에 'key'를 넣어줘야 중복 에러가 안 납니다!
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_{random.randint(1,1000)}")
+                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
+                             range_y=[0, 10], range_color=[0, 10],
+                             color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']])
+                st.plotly_chart(fig, use_container_width=True, key=f"v_{random.randint(1,999)}")
 
-                st.subheader("📑 AI 전략 리포트")
-                st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("검색하기")}, use_container_width=True)
+                # 🔍 여기가 중요합니다! 데이터가 제대로 오는지 확인하는 표
+                st.write("🔍 **데이터 수집 검증 (이 숫자들이 다 똑같은지 봐주세요!)**")
+                st.table(df[['키워드', '블루오션지수', '실제비율', '블로그수']])
 
 # 6. 본문 프롬프트 생성기 (기존 이모티콘 및 내용 보존)
 st.markdown("---")
@@ -296,6 +248,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
