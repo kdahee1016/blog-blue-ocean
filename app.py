@@ -78,10 +78,10 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 쇼핑 데이터를 안전한 과거 시점부터 정밀 분석 중...'):
+        with st.spinner('네이버 쇼핑 데이터를 안전한 시점부터 정밀 분석 중...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # [수정] 데이터 집계가 완벽히 끝난 5일 전부터 15일 전까지 조회합니다.
+                # 데이터가 가장 확실한 5일 전부터 15일 전까지 조회
                 for i in range(5, 16):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
@@ -101,23 +101,30 @@ if st.button("🚀 심층 분석 시작"):
                     
                     if res.status_code == 200:
                         data = res.json()
-                        # 네이버 응답 구조가 'results' 안에 데이터가 있는지 꼼꼼히 체크
-                        if 'results' in data and data['results'][0].get('data'):
-                            final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
-                            if final_keywords: # 키워드가 실제로 들어있을 때만 성공 처리
+                        # [핵심 수정] 네이버의 복잡한 응답 구조를 샅샅이 뒤집니다.
+                        try:
+                            # 구조 1: data['results'][0]['data']
+                            temp_data = data.get('results', [{}])[0].get('data', [])
+                            if not temp_data:
+                                # 구조 2: data[0]['data'] (가끔 리스트로 바로 올 때 대비)
+                                temp_data = data[0].get('data', []) if isinstance(data, list) else []
+                            
+                            if temp_data:
+                                final_keywords = [item['title'] for item in temp_data[:15]]
                                 success = True
-                                st.write(f"✅ {target_date} 데이터 분석에 성공했습니다!")
+                                st.write(f"✅ {target_date} 데이터 분석 성공!")
                                 break
+                        except Exception:
+                            continue
                     else:
-                        # 디버깅용 로그 (401이나 403이 뜨면 키 문제, 400은 날짜/형식 문제)
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code}")
 
                 if not success:
-                    st.error("⚠️ 선택하신 카테고리에 최근 생성된 데이터가 없습니다. 다른 하위 카테고리로도 테스트해 보세요!")
+                    st.error("⚠️ 데이터를 수신했으나 분석에 실패했습니다. 카테고리를 바꿔서 한 번만 더 시도해 주세요!")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 (블로그 검색량 비교 및 리포트)
+            # 결과 처리 및 리포트 (드디어 그래프가 그려집니다!)
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
@@ -128,14 +135,9 @@ if st.button("🚀 심층 분석 시작"):
                     # 블루오션 지수 (조회수 대비 경쟁강도)
                     score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                     
-                    results.append({
-                        "키워드": kw, 
-                        "블루오션지수": score, 
-                        "AI 제목 추천": " | ".join(generate_ai_titles(kw))
-                    })
+                    results.append({"키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
                     p_bar.progress((idx + 1) / len(final_keywords))
 
-                # 리포트 출력 (이 부분이 드디어 화면에 뜹니다!)
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
                 st.subheader("📑 AI 전략 리포트")
@@ -180,6 +182,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
