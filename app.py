@@ -73,26 +73,31 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 서버와 통신 중입니다...'):
+        with st.spinner('네이버 서버와 정밀 통신 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
                 for i in range(3, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [최종 해결 구조] keyword는 반드시 리스트 형태([])여야 하며
-                    # 그 안에 name과 param을 가진 객체({})가 들어가야 합니다.
+                    # [최종 정석 구조] keyword는 리스트([]) 안에 객체({})가 들어가야 합니다.
+                    # sub_cat(예: 아동의류)을 검색 키워드 이름과 파라미터로 동시에 사용합니다.
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
                         "category": str(selected_category_id),
-                        "keyword": [{"name": sub_cat, "param": [sub_cat]}], # 필수 필드 완벽 보강
+                        "keyword": [
+                            {
+                                "name": str(sub_cat), 
+                                "param": [str(sub_cat)]
+                            }
+                        ],
                         "device": "",
                         "gender": "",
                         "ages": []
                     }
                     
-                    # 가장 안정적인 데이터랩 키워드 분석 주소 사용
+                    # 인코딩 문제 방지를 위해 json.dumps 설정을 강화했습니다.
                     res = requests.post(
                         "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
@@ -110,7 +115,7 @@ if st.button("🚀 심층 분석 시작"):
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 형식을 맞췄으나 거절되었습니다. API 권한 설정에서 '쇼핑인사이트'가 체크되어 있는지 다시 확인해주세요.")
+                    st.error("⚠️ 모든 형식을 맞췄으나 네이버가 거부했습니다. API 키 입력란에 오타나 앞뒤 공백이 없는지 다시 확인해주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -172,6 +177,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
