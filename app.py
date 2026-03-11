@@ -91,6 +91,11 @@ if st.button("🚀 심층 분석 시작"):
                     res = requests.post("https://openapi.naver.com/v1/datalab/shopping/categories", headers=headers, data=json.dumps(s_body))
                     
                     if res.status_code == 200:
+                        res = requests.post(
+                            "https://openapi.naver.com/v1/datalab/shopping/categories",
+                            headers=headers,
+                            json=s_body
+                        )
                         data = res.json()
                         if 'results' in data and data['results'][0]['data']:
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
@@ -172,6 +177,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
