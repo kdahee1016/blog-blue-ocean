@@ -235,8 +235,10 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                     y='블루오션지수', 
                     color='블루오션지수', 
                     text='블루오션지수', 
-                    range_y=[0, 10], 
-                    color_continuous_scale='RdYlBu_r', # 파랑(고) -> 초록 -> 노랑 -> 빨강(저)
+                    range_y=[0, 10],            # 세로축 높이 고정
+                    range_color=[0, 10],        # 색상의 기준 범위를 0~10으로 고정! (핵심)
+                    color_continuous_scale='RdYlBu_r', 
+                    color_continuous_midpoint=5, # 5점을 중간색(초록/노랑)으로 설정
                     labels={'블루오션지수': '블루오션 점수'}
                 )
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
@@ -296,3 +298,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
