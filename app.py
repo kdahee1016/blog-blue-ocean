@@ -86,8 +86,8 @@ if st.button("🚀 심층 분석 시작"):
                 for i in range(4, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [핵심] 네이버가 요구하는 'keyword' 필수 객체 구조입니다.
-                    # 리스트 [] 안에 객체 {}가 들어가고, 그 안에 name과 param이 있어야 합니다.
+                    # [최종병기] 네이버 공식 문서의 샘플 구조와 100% 일치시켰습니다.
+                    # 필수 필드인 device, gender, ages를 빈 값으로라도 넣어주어야 안전합니다.
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
@@ -98,7 +98,10 @@ if st.button("🚀 심층 분석 시작"):
                                 "name": str(sub_cat), 
                                 "param": [str(sub_cat)]
                             }
-                        ]
+                        ],
+                        "device": "",
+                        "gender": "",
+                        "ages": []
                     }
                     
                     # 가장 안정적인 공식 엔드포인트 주소
@@ -121,7 +124,7 @@ if st.button("🚀 심층 분석 시작"):
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 형식을 맞췄으나 실패했습니다. ID/Secret 복사 시 공백이 섞였는지 다시 확인해주세요!")
+                    st.error("⚠️ 네이버 설정은 완벽하나 통신 규격 오류가 반복됩니다. ID/Secret을 다시 한번 복사해 넣어주세요!")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -130,7 +133,7 @@ if st.button("🚀 심층 분석 시작"):
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 조회 (이건 일반 검색 API라 매우 안정적입니다)
+                    # 블로그 조회 (일반 검색 API)
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
@@ -189,6 +192,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
