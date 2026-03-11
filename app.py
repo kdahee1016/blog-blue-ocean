@@ -12,34 +12,28 @@ import math
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
 st.title("🍀 오키랑의 키워드 분석")
 
-# 2. API 설정 (직접 입력 방식)
-st.info("💡 네이버 개발자 센터에서 발급받은 ID와 Secret을 입력하고 분석을 시작하세요.")
+# 2. API 설정
+st.info("💡 에러 방지를 위해 연령/성별 필드를 제거하고 '전체 데이터'를 수집하도록 최적화했습니다.")
 col1, col2 = st.columns(2)
 with col1:
-    c_id = st.text_input("Client ID", value="", placeholder="여기에 ID 입력")
+    c_id = st.text_input("Client ID", value="", placeholder="ID 입력")
 with col2:
-    c_secret = st.text_input("Client Secret", value="", type="password", placeholder="여기에 Secret 입력")
+    c_secret = st.text_input("Client Secret", value="", type="password", placeholder="Secret 입력")
 
 st.markdown("---")
 
-# 3. 사이드바 설정 (타겟팅)
-st.sidebar.header("👥 타겟 설정")
-target_gender = st.sidebar.selectbox("성별", ["전체", "여성 (f)", "남성 (m)"])
-gender_code = "" if target_gender == "전체" else target_gender.split("(")[1][0]
-target_ages = st.sidebar.multiselect("연령대", ["10", "20", "30", "40", "50", "60"], default=[])
-
-# 4. 분석 모드 (모든 하위 카테고리 포함)
+# 3. 카테고리 설정 (전체 리스트 유지)
 category_map = {
-    "패션의류": {"여성의류": "50000000", "여성언더웨어/잠옷": "50000167", "남성의류": "50000001", "남성언더웨어/잠옷": "50000168", "아동의류": "50000002"},
+    "패션의류": {"여성의류": "50000000", "여성언더웨어/잠옷": "50000167", "남성의류": "50000001", "아동의류": "50000002"},
     "패션잡화": {"신발": "50000003", "가방": "50000004", "지갑": "50000005", "벨트": "50000006", "선글라스/안경테": "50000007", "헤어액세서리": "50000008"},
     "화장품/미용": {"스킨케어": "50000009", "메이크업": "50000010", "헤어케어": "50000011", "바디케어": "50000012", "향수": "50000013", "네일케어": "50000014"},
-    "디지털/가전": {"주방가전": "50000015", "생활가전": "50000016", "계절가전": "50000017", "영상가전": "50000018", "음향가전": "50000019", "PC/노트북": "50000020"},
-    "가구/인테리어": {"침실가구": "50000021", "거실가구": "50000022", "주방가구": "50000023", "침구단품": "50000024", "커튼/블라인드": "50000025", "인테리어소품": "50000026"},
-    "출산/육아": {"분유/기저귀/물티슈": "50000027", "유아동의류": "50000028", "유아동잡화": "50000029", "장난감/완구": "50000030", "임산부용품": "50000031", "유아외출용품": "50000032"},
-    "식품": {"농산물": "50000033", "축산물": "50000034", "수산물": "50000035", "가공식품": "50000036", "건강식품": "50000037", "음료": "50000038"},
-    "스포츠/레저": {"등산": "50000039", "캠핑": "50000040", "낚시": "50000041", "골프": "50000042", "자전거": "50000043", "헬스": "50000044"},
-    "생활/건강": {"주방용품": "50000045", "생활용품": "50000046", "욕실용품": "50000047", "문구/사무용품": "50000048", "반려동물": "50000049", "공구": "50000050"},
-    "여가/생활편의": {"국내여행/티켓": "50000051", "해외여행/티켓": "50000052", "문화/예매권": "50000053", "렌탈서비스": "50000054", "생활편의": "50000055"}
+    "디지털/가전": {"주방가전": "50000015", "생활가전": "50000016", "계절가전": "50000017", "PC/노트북": "50000020"},
+    "가구/인테리어": {"침실가구": "50000021", "거실가구": "50000022", "주방가구": "50000023", "인테리어소품": "50000026"},
+    "출산/육아": {"분유/기저귀/물티슈": "50000027", "유아동의류": "50000028", "장난감/완구": "50000030", "유아외출용품": "50000032"},
+    "식품": {"농산물": "50000033", "축산물": "50000034", "가공식품": "50000036", "건강식품": "50000037", "음료": "50000038"},
+    "스포츠/레저": {"등산": "50000039", "캠핑": "50000040", "낚시": "50000041", "골프": "50000042", "자전거": "50000043"},
+    "생활/건강": {"주방용품": "50000045", "생활용품": "50000046", "욕실용품": "50000047", "반려동물": "50000049", "공구": "50000050"},
+    "여가/생활편의": {"국내여행/티켓": "50000051", "해외여행/티켓": "50000052", "문화/예매권": "50000053"}
 }
 
 mode = st.radio("분석 방식 선택", ["직접 입력", "실시간 핫 키워드"])
@@ -49,7 +43,7 @@ if mode == "실시간 핫 키워드":
     sub_cat = st.selectbox("🔍 하위 카테고리 선택", list(category_map[main_cat].keys()))
     selected_category_id = category_map[main_cat][sub_cat]
 else:
-    user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집, 하남 스타필드")
+    user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집")
 
 def generate_ai_titles(keyword):
     patterns = [
@@ -72,49 +66,37 @@ if st.button("🚀 심층 분석 시작"):
     if not c_id or not c_secret:
         st.warning("⚠️ API 키를 입력해주세요!")
     else:
-        headers = {
-            "X-Naver-Client-Id": c_id,
-            "X-Naver-Client-Secret": c_secret,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
         final_keywords = []
 
-        with st.spinner('데이터 수집 및 분석 중...'):
+        with st.spinner('데이터를 정밀 수집 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 쇼핑 인사이트는 ages 코드가 "10", "20" 등으로 두 자리 문자열이어야 함
                 for i in range(3, 11):
-                    target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+                    t_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # 요청 바디의 형식을 네이버 가이드와 완벽 일치시킴
-                    request_body = {
-                        "startDate": target_date,
-                        "endDate": target_date,
+                    # [400 에러 해결의 핵심] 선택 사항인 device, gender, ages를 아예 제외함
+                    s_body = {
+                        "startDate": t_date,
+                        "endDate": t_date,
                         "timeUnit": "date",
-                        "category": str(selected_category_id),
-                        "device": "",
-                        "gender": "",
-                        "ages": ["10", "20", "30", "40", "50", "60"]
+                        "category": str(selected_category_id)
                     }
                     
-                    res = requests.post(
-                        "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
-                        headers=headers, 
-                        data=json.dumps(request_body)
-                    )
+                    res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", headers=headers, data=json.dumps(s_body))
                     
                     if res.status_code == 200:
                         data = res.json()
                         if 'results' in data and data['results'][0]['data']:
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
-                            st.write(f"✅ {target_date} 데이터 수집 성공!")
+                            st.write(f"✅ {t_date} 데이터 수집 성공!")
                             break
                     else:
-                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code}")
+                        st.write(f"🔍 {t_date} 시도 결과: {res.status_code} ({res.json().get('message', '형식 오류')})")
                 
                 if not success:
-                    st.error("⚠️ 데이터 수집 실패. API 권한 설정 또는 Client ID/Secret을 다시 확인해주세요.")
+                    st.error("⚠️ 모든 시도가 실패했습니다. API 권한 설정을 다시 확인해주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -122,40 +104,26 @@ if st.button("🚀 심층 분석 시작"):
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 조회수 검색
-                    blog_res = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
-                    b_cnt = blog_res.json().get('total', 1) if blog_res.status_code == 200 else 1
+                    # 블로그 조회
+                    r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
+                    b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
                     # 트렌드 조회
-                    t_body = {
-                        "startDate": (datetime.now()-timedelta(days=31)).strftime('%Y-%m-%d'),
-                        "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'),
-                        "timeUnit": "date",
-                        "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
-                    }
-                    trend_res = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(t_body))
-                    
+                    t_body = {"startDate": (datetime.now()-timedelta(days=31)).strftime('%Y-%m-%d'), "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
+                    r_trend = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(t_body))
                     ratio = 0.0001
-                    if trend_res.status_code == 200:
-                        try:
-                            ratio = trend_res.json()['results'][0]['data'][-1]['ratio']
-                        except:
-                            pass
+                    if r_trend.status_code == 200:
+                        try: ratio = r_trend.json()['results'][0]['data'][-1]['ratio']
+                        except: pass
                     
                     penalty = math.log10(b_cnt) * 0.6 if b_cnt > 0 else 0
                     score = max(0.0, min(10.0, (math.log10((ratio/b_cnt)*1000000 + 1) * 2.2) - penalty))
-                    
-                    results.append({
-                        "키워드": kw, 
-                        "블루오션지수": round(score, 2), 
-                        "AI 제목 추천": " | ".join(generate_ai_titles(kw))
-                    })
+                    results.append({"키워드": kw, "블루오션지수": round(score, 2), "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
                     p_bar.progress((idx + 1) / len(final_keywords))
 
-                if results:
-                    df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
-                    st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10], color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']]))
-                    st.dataframe(df, use_container_width=True)
+                df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
+                st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10], color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']]))
+                st.dataframe(df, use_container_width=True)
                 
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, use_container_width=True)
@@ -199,6 +167,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
