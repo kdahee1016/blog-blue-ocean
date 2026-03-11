@@ -88,7 +88,7 @@ if st.button("🚀 심층 분석 시작"):
                 "endDate": target_date,
                 "timeUnit": "date",
                 "category": str(selected_category_id),
-                "keyword": [{"name": search_name, "param": [search_name]}]
+                "keyword": []
             }
 
             res = requests.post(
@@ -190,6 +190,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
