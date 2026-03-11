@@ -137,8 +137,8 @@ if st.button("🚀 심층 분석 시작"):
                 st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10], color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']]))
                 st.dataframe(df, use_container_width=True)
 
-                    st.subheader("📑 AI 전략 리포트")
-                    st.dataframe(df, use_container_width=True)
+                st.subheader("📑 AI 전략 리포트")
+                st.dataframe(df, use_container_width=True)
 
 # 6. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
@@ -179,6 +179,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
