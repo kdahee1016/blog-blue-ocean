@@ -125,17 +125,24 @@ if st.button("🚀 심층 분석 시작"):
             
             # --- 연관검색어 리스트 (st.code 활용으로 자동 복사 구현) ---
             st.markdown("---")
-            st.subheader("🔗 네이버 연관검색어 (우측 버튼 클릭 시 복사)")
+            st.subheader("🔗 네이버 연관검색어 (단어를 클릭하면 개별 복사됩니다)")
+            
             for kw in final_keywords:
                 rel_list = related_data.get(kw, [])
+                st.write(f"📌 **{kw}**")
+                
                 if rel_list:
-                    rel_text = ", ".join(rel_list)
-                    st.write(f"📌 **{kw}**")
-                    # st.code는 우측 상단에 복사 아이콘이 기본 제공됩니다.
-                    st.code(rel_text, language=None)
+                    # 단어들을 가로로 나열하기 위해 컬럼 사용 (최대 5개씩 끊어서 표시)
+                    # 혹은 간단하게 개별 버튼을 생성
+                    cols = st.columns(5) # 한 줄에 5개씩 버튼 배치
+                    for i, rel_kw in enumerate(rel_list):
+                        with cols[i % 5]:
+                            # 단어별로 클릭 시 복사 기능 제공
+                            st.copy_to_clipboard(rel_kw, before_text=f"{rel_kw}", after_text="✅")
+                    st.write("") # 간격 조절
                 else:
-                    st.write(f"📌 **{kw}**")
                     st.caption("관련된 연관검색어가 없습니다.")
+            
             st.balloons()
 
 # 5. 본문 프롬프트 생성기
@@ -176,5 +183,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
