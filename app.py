@@ -75,41 +75,35 @@ if st.button("🚀 심층 분석 시작"):
         headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
         final_keywords = []
 
-        with st.spinner('네이버 데이터를 분석 중입니다...'):
+        with st.spinner('네이버 데이터를 정밀 분석 중...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 400 에러 해결을 위해 'ages' 필드를 제거하고 가장 심플한 요청 시도
+                # 쇼핑 인사이트 API 표준 규격 적용
                 for i in range(3, 11):
                     t_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     s_body = {
                         "startDate": t_date,
                         "endDate": t_date,
                         "timeUnit": "date",
-                        "category": str(selected_category_id)
+                        "category": str(selected_category_id),
+                        "device": "",
+                        "gender": "",
+                        "ages": ["10", "20", "30", "40", "50", "60"] # 쇼핑 인사이트는 두 자리 코드 사용
                     }
-                    # device, gender, ages가 필수가 아니므로 에러 방지를 위해 과감히 생략
-                    res = requests.post("https://openapi.naver.com/v1/datalab/shopping/categories", headers=headers, json=s_body)
+                    res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", headers=headers, data=json.dumps(s_body))
                     
                     if res.status_code == 200:
-                        res = requests.post(
-                            "https://openapi.naver.com/v1/datalab/shopping/categories",
-                            headers=headers,
-                            json=s_body
-                        )
                         data = res.json()
-                        if 'results' in data and data['results']:
-                            final_keywords = [
-                                item['keyword']
-                                for item in data['results'][0]['keywords'][:15]
-                            ]
+                        if 'results' in data and data['results'][0]['data']:
+                            final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
                             st.write(f"✅ {t_date} 데이터 수집 성공!")
                             break
                     else:
-                        st.write(f"🔍 {t_date} 시도 결과: {res.status_code} 에러")
+                        st.write(f"🔍 {t_date} 시도 결과: {res.status_code} ({res.json().get('message', '형식 오류')})")
                 
                 if not success:
-                    st.error("⚠️ 카테고리 데이터 수집 실패. API 권한 설정을 다시 확인해주세요.")
+                    st.error("⚠️ 카테고리 데이터 수집 실패. API 권한(데이터랩 쇼핑인사이트) 설정을 다시 확인해주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -117,11 +111,11 @@ if st.button("🚀 심층 분석 시작"):
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 수
+                    # 블로그 조회
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
-                    # 트렌드
+                    # 트렌드 비율 (여기서는 보내주신 예제의 API 주소인 search 트렌드 사용)
                     t_body = {"startDate": (datetime.now()-timedelta(days=31)).strftime('%Y-%m-%d'), "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
                     r_trend = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(t_body))
                     ratio = 0.0001
@@ -180,6 +174,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
