@@ -185,19 +185,47 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                         r = requests.get(b_url, headers=headers)
                         return r.json().get('total', 0) if r.status_code == 200 else 0
 
+                    # 1. 블로그 수 수집 (최소 1로 고정하여 나눗셈 에러 방지)
                     cnt1 = get_blog_total(kw)
                     cnt2 = get_blog_total(kw.replace(" ", ""))
                     blog_count = max(cnt1, cnt2, 1)
 
-                    s_body = {"startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": datetime.now().strftime('%Y-%m-%d'), "timeUnit": "month", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
+                    # 2. 검색 비율 수집
+                    s_body = {
+                        "startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), 
+                        "endDate": datetime.now().strftime('%Y-%m-%d'), 
+                        "timeUnit": "month", 
+                        "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
+                    }
                     res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                     
-                    now_ratio = 0.01
+                    now_ratio = 0.0001 # 기본값을 아주 작게 설정
                     if res_now.status_code == 200:
                         try:
                             n_data = res_now.json()['results'][0]['data']
-                            now_ratio = n_data[0]['ratio'] if n_data else 0.01
+                            if n_data:
+                                # 가장 최근의 ratio 값을 가져옵니다.
+                                now_ratio = n_data[-1]['ratio'] 
                         except: pass
+                    
+                    # 3. 블루오션 지수 계산 (0~10점 보정 공식 업데이트)
+                    # 검색량(now_ratio)은 큰데 블로그수(blog_count)가 적을수록 점수가 올라감
+                    # 로그 상수를 1.5 정도로 조절하여 9점 고정 현상을 방지합니다.
+                    raw_score = (now_ratio / blog_count) * 1000000 
+                    
+                    if raw_score > 0:
+                        # math.log10 결과를 1.5~2.0 사이로 곱해 점수 폭을 넓힙니다.
+                        final_score = math.log10(raw_score + 1) * 1.8 
+                        final_score = min(10.0, final_score) # 10점 만점 제한
+                    else:
+                        final_score = 0.0
+
+                    results.append({
+                        "키워드": kw,
+                        "블루오션지수": round(final_score, 2),
+                        "AI 제목 추천": generate_ai_titles(kw)[0], 
+                        "상세보기": f"https://search.naver.com/search.naver?query={kw}"
+                    })
                     
                     # --- 0~10점 지수 보정 로직 적용 ---
                     raw_score = (now_ratio / blog_count) * 100000
@@ -310,6 +338,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
