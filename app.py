@@ -229,18 +229,29 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                 
                 # --- 색상 변경 그래프 적용 ---
                 st.subheader("📈 키워드별 시장성 분석")
+                
+                # 색상 스케일을 직접 정의 (0점: 빨강 -> 5점: 노랑 -> 10점: 파랑)
+                custom_color_scale = [
+                    [0.0, "red"],    # 0점 (레드오션)
+                    [0.5, "yellow"], # 5점 (중간)
+                    [1.0, "blue"]    # 10점 (블루오션)
+                ]
+
                 fig = px.bar(
                     df, 
                     x='키워드', 
                     y='블루오션지수', 
                     color='블루오션지수', 
                     text='블루오션지수', 
-                    range_y=[0, 10],            # 세로축 높이 고정
-                    range_color=[0, 10],        # 색상의 기준 범위를 0~10으로 고정! (핵심)
-                    color_continuous_scale='RdYlBu_r', 
-                    color_continuous_midpoint=5, # 5점을 중간색(초록/노랑)으로 설정
+                    range_y=[0, 10],            # 세로축 0~10 고정
+                    range_color=[0, 10],        # 색상 기준 0~10 고정
+                    color_continuous_scale=custom_color_scale, # 직접 만든 색상표 적용
                     labels={'블루오션지수': '블루오션 점수'}
                 )
+
+                fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                fig.update_coloraxes(showscale=True)
+                st.plotly_chart(fig, use_container_width=True)
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
                 fig.update_coloraxes(showscale=True)
                 st.plotly_chart(fig, use_container_width=True)
@@ -298,4 +309,5 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
