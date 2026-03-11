@@ -73,51 +73,52 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('실시간 인기 랭킹을 수집 중입니다...'):
+        with st.spinner('네이버 데이터를 강제 정밀 분석 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
                 for i in range(3, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [필살기] 에러를 일으키는 모든 선택 필드를 삭제했습니다.
-                    # 오직 필수 4개 필드만 남긴 가장 순수한 JSON 구조입니다.
-                    s_body = {
+                    # [최후의 필살기] 네이버가 요구하는 'keyword' 필수 속성을 억지로라도 채웁니다.
+                    # 카테고리명(예: 아동의류) 자체를 검색 키워드로 던져서 에러를 회피합니다.
+                    payload = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
-                        "category": str(selected_category_id)
+                        "category": str(selected_category_id),
+                        "keyword": [{"name": str(sub_cat), "param": [str(sub_cat)]}]
                     }
                     
-                    # 주소 끝이 'keyword/top10'인 것이 랭킹 수집의 핵심입니다!
+                    # 가장 안정적인 기본 API 주소로 회귀
                     res = requests.post(
-                        "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top10", 
+                        "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
-                        data=json.dumps(s_body)
+                        data=json.dumps(payload, ensure_ascii=False).encode('utf-8')
                     )
                     
                     if res.status_code == 200:
                         data = res.json()
                         if 'results' in data and data['results'][0].get('data'):
+                            # 네이버가 추천하는 연관 키워드 15개를 낚아옵니다.
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
-                            st.write(f"✅ {target_date} 랭킹 수집 성공!")
+                            st.write(f"✅ {target_date} 데이터 수집 성공!")
                             break
                     else:
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 시도가 실패했습니다. 네이버 개발자 센터에서 '데이터랩(쇼핑인사이트)' 권한이 활성화되어 있는지 다시 확인해주세요.")
+                    st.error("⚠️ 이 방법으로도 실패한다면 네이버 개발자 센터 '내 애플리케이션' 설정에서 '데이터랩(쇼핑인사이트)' API가 정말로 등록되어 있는지 마지막으로 확인해 주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 및 리포트 출력 (기존과 동일)
+            # 결과 리포트 생성 (이하 동일)
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                    
                     score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                     results.append({"키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
                     p_bar.progress((idx + 1) / len(final_keywords))
@@ -166,6 +167,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
