@@ -7,6 +7,7 @@ import plotly.express as px
 import urllib.parse
 import math
 import random
+from bs4 import BeautifulSoup  # 연관검색어 크롤링을 위해 추가
 
 # 1. 페이지 설정
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
@@ -36,6 +37,22 @@ category_map = {
     "여가/생활편의": {"국내여행/티켓": "50000051", "해외여행/티켓": "50000052", "문화/예매권": "50000053"}
 }
 
+def get_naver_related_keywords(keyword):
+    """
+    네이버 검색 결과 페이지에서 연관검색어를 추출합니다.
+    """
+    url = f"https://search.naver.com/search.naver?query={urllib.parse.quote(keyword)}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+    }
+    try:
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        related_tags = soup.select(".lst_related_srch .tit")
+        return [tag.get_text().strip() for tag in related_tags]
+    except:
+        return []
+
 mode = st.radio("분석 방식 선택", ["직접 입력", "실시간 핫 키워드"])
 
 # 초기 변수 설정
@@ -50,44 +67,6 @@ if mode == "실시간 핫 키워드":
 else:
     user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집")
     search_name = "직접 입력"
-
-    def get_naver_related_keywords(keyword):
-        """
-        네이버 검색 결과 페이지에서 연관검색어를 추출합니다.
-        """
-        url = f"https://search.naver.com/search.naver?query={keyword}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-        }
-        
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 네이버 연관검색어 영역 선택자 (네이버 개편에 따라 변경될 수 있음)
-        related_tags = soup.select(".lst_related_srch .tit")
-        
-        related_keywords = [tag.get_text().strip() for tag in related_tags]
-        return related_keywords
-    
-    # --- Streamlit UI 부분 ---
-    # 기존 제목 추천 코드는 삭제하거나 주석 처리하세요.
-    
-    st.subheader(f"🔍 '{keyword}' 연관검색어 리스트")
-    related_list = get_naver_related_keywords(keyword)
-    
-    if related_list:
-        # 보기 좋게 표나 태그 형태로 출력
-        st.success(f"총 {len(related_list)}개의 연관검색어를 찾았습니다.")
-        
-        # 2열로 나누어 출력하거나 리스트로 나열
-        cols = st.columns(2)
-        for i, rel_kw in enumerate(related_list):
-            cols[i % 2].write(f"• {rel_kw}")
-            
-        # 복사하기 편하도록 텍스트 데이터로도 제공
-        st.text_area("연관검색어 전체 복사", value=", ".join(related_list))
-    else:
-        st.info("현재 해당 키워드에 대한 연관검색어가 없거나 불러올 수 없습니다.")
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
@@ -137,6 +116,7 @@ if st.button("🚀 심층 분석 시작"):
         # 2. 결과 분석 및 출력
         if final_keywords:
             results_list = []
+            related_data = {} # 연관검색어 저장용
             p_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
@@ -176,11 +156,14 @@ if st.button("🚀 심층 분석 시작"):
 
                 results_list.append({
                     "시장성": status, "키워드": kw, "발행량": f"{b_cnt:,}건", 
-                    "검색강도(상대)": f"{s_ratio:.1f}%", "지수": score,
-                    "AI 제목": " | ".join(generate_ai_titles(kw))
+                    "검색강도(상대)": f"{s_ratio:.1f}%", "지수": score
                 })
+                
+                # 연관검색어 미리 추출
+                related_data[kw] = get_naver_related_keywords(kw)
                 p_bar.progress((idx + 1) / len(final_keywords))
 
+            # 차트 및 리포트 출력
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
             fig = px.bar(
                 df, x='키워드', y='지수', color='시장성',
@@ -190,6 +173,19 @@ if st.button("🚀 심층 분석 시작"):
             st.plotly_chart(fig)
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
+            
+            # --- 연관검색어 리스트 출력 섹션 ---
+            st.markdown("---")
+            st.subheader("🔗 네이버 연관검색어 리스트")
+            for kw in final_keywords:
+                with st.expander(f"📌 '{kw}' 관련 연관검색어 보기"):
+                    rel_list = related_data.get(kw, [])
+                    if rel_list:
+                        st.write(", ".join(rel_list))
+                        st.text_area(f"'{kw}' 연관검색어 복사", value=", ".join(rel_list), key=f"copy_{kw}")
+                    else:
+                        st.info("검색된 연관검색어가 없습니다.")
+            
             st.balloons()
 
 # 5. 본문 프롬프트 생성기
@@ -230,5 +226,3 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
-
