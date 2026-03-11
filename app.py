@@ -124,7 +124,7 @@ if st.button("🚀 심층 분석 시작"):
             st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
             
             # --- 연관검색어 리스트 (st.code 활용으로 자동 복사 구현) ---
-st.markdown("---")
+            st.markdown("---")
             st.subheader("🔗 네이버 연관검색어 (단어별 아이콘 클릭 시 복사)")
             
             for kw in final_keywords:
@@ -183,6 +183,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
