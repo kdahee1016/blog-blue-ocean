@@ -101,28 +101,33 @@ if st.button("🚀 심층 분석 시작"):
                     
                     if res.status_code == 200:
                         data = res.json()
-                        # [핵심] 네이버 JSON 구조 정밀 분석 및 키워드 추출
-                        if 'results' in data and len(data['results']) > 0:
-                            raw_data = data['results'][0].get('data', [])
-                            if raw_data:
-                                # group, keyword, title 중 존재하는 이름표를 낚아챕니다.
-                                final_keywords = [
-                                    item.get('group', item.get('keyword', item.get('title', ''))) 
-                                    for item in raw_data[:15]
-                                ]
-                                
-                                # 빈 값 제거 및 리스트 정제
-                                final_keywords = [k for k in final_keywords if k]
-                                
-                                if final_keywords:
-                                    success = True
-                                    st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 발견했습니다!")
-                                    break
+                        # [무적의 그물망 로직] 어떤 구조로 오든 키워드를 찾아냅니다.
+                        try:
+                            # 1단계: results 리스트 확보
+                            results = data.get('results', [])
+                            if results and isinstance(results, list):
+                                # 2단계: 첫 번째 결과의 data 리스트 확보
+                                raw_items = results[0].get('data', [])
+                                if raw_items:
+                                    # 3단계: group, keyword, title 중 있는 걸로 추출
+                                    final_keywords = [
+                                        item.get('group', item.get('keyword', item.get('title', ''))) 
+                                        for item in raw_items[:15]
+                                    ]
+                                    # 4단계: 빈 값 제거
+                                    final_keywords = [k for k in final_keywords if k]
+                                    
+                                    if final_keywords:
+                                        success = True
+                                        st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 발견했습니다!")
+                                        break
+                        except Exception as e:
+                            continue
                     else:
-                        st.write(f"🔍 {target_date} 시도 중... (응답: {res.status_code})")
+                        st.write(f"🔍 {target_date} 시도 중... (상태: {res.status_code})")
 
                 if not success:
-                    st.error("⚠️ 네이버에서 데이터를 가져오지 못했습니다. 카테고리를 '식품'이나 '육아'로 바꿔서 한 번만 더 눌러보세요!")
+                    st.error("⚠️ 데이터를 수신했으나 알맹이가 없습니다. 카테고리를 '식품'이나 '육아'로 바꿔서 시도해 보세요!")
             else:
                 # 수동 입력 기능
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
@@ -131,15 +136,14 @@ if st.button("🚀 심층 분석 시작"):
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
+            st.info(f"🔎 추출된 {len(final_keywords)}개 키워드의 블루오션 지수를 분석합니다...")
+            
             for idx, kw in enumerate(final_keywords):
-                # 블로그 검색 결과 총 개수 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                
-                # 블루오션 지수 계산 (로그 스케일 적용)
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
@@ -194,6 +198,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
