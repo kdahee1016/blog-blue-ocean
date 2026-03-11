@@ -101,13 +101,18 @@ def generate_ai_titles(keyword):
 if st.button("🚀 심층 분석 시작"):
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
-    headers = {"X-Naver-Client-Id": clean_id, "X-Naver-Client-Secret": clean_secret, "Content-Type": "application/json"}
+    headers = {
+        "X-Naver-Client-Id": clean_id, 
+        "X-Naver-Client-Secret": clean_secret, 
+        "Content-Type": "application/json"
+    }
     
-    final_keywords = []
+    final_keywords = [] # 변수 초기화
 
-    with st.spinner('정밀 분석 중...'):
+    with st.spinner('선택하신 카테고리에 딱 맞는 키워드를 분석 중입니다...'):
+        # 1. 키워드 추출 로직
         if mode == "실시간 핫 키워드":
-            search_name = sub_cat
+            search_name = sub_cat if sub_cat else "인기상품"
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             payload = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
@@ -117,10 +122,9 @@ if st.button("🚀 심층 분석 시작"):
                 if res.status_code == 200:
                     raw_data = res.json().get('results', [{}])[0].get('data', [])
                     final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
-            except: pass
+            except:
+                pass
 
-if mode == "실시간 핫 키워드":
-            # ... 네이버 API 호출 로직 ...
             if not final_keywords:
                 st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
                 if "여행" in search_name or "티켓" in search_name:
@@ -134,19 +138,24 @@ if mode == "실시간 핫 키워드":
                 else:
                     suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
                 final_keywords = [f"{search_name} {s}" for s in suffixes]
-        else:
-            # 직접 입력 모드일 때
+        
+        else: # 직접 입력 모드 (여기가 에러 났던 부분입니다!)
+            search_name = "직접 입력"
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-        # 분석 결과 출력 (모든 키워드가 준비된 후 실행)
+        # 2. 결과 분석 및 출력
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
+            
             for idx, kw in enumerate(final_keywords):
-                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
+                r_blog = requests.get(
+                    f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
+                    headers=headers
+                )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 0
                 
-                # 지수 계산법: 발행량이 아주 적을 때도 키워드 길이에 따라 미세하게 차등
+                # 지수 계산법 (발행량 기반)
                 if b_cnt > 10:
                     score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.45)), 2)
                 else:
@@ -169,75 +178,20 @@ if mode == "실시간 핫 키워드":
 
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
             
-            # 그래프 및 표 출력
-            fig = px.bar(df, x='키워드', y='지수', color='지수', 
-                         color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
-                         range_y=[0, 10], title=f"🌊 {search_name if mode == '실시간 핫 키워드' else '직접 입력'} 블루오션 정밀 분석")
-            fig.update_traces(texttemplate='%{y}', textposition='outside')
-            st.plotly_chart(fig)
-            
-            st.subheader("📑 실시간 블루오션 전략 리포트")
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            st.balloons()
-
-if final_keywords:
-            results_list = []
-            p_bar = st.progress(0)
-            
-            for idx, kw in enumerate(final_keywords):
-                r_blog = requests.get(
-                    f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
-                    headers=headers
-                )
-                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                
-                # 1. 정밀 지수 계산 (발행량 감점 강화)
-                if b_cnt > 1:
-                    score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.35)), 2)
-                else:
-                    score = 9.99
-                
-                # 2. [추가] 다이아몬드~브론즈 등급 판정 로직
-                if score >= 8.5:
-                    grade = "💎 다이아몬드 (무조건 써야 함)"
-                elif score >= 7.0:
-                    grade = "🥇 골드 (상위노출 확률 높음)"
-                elif score >= 4.0:
-                    grade = "🥈 실버 (경쟁이 좀 있음)"
-                else:
-                    grade = "🥉 브론즈 (레드오션 주의)"
-
-                results_list.append({
-                    "등급": grade,
-                    "키워드": kw, 
-                    "블로그 발행량": f"{b_cnt:,}건",
-                    "블루오션지수": score, 
-                    "AI 제목 추천": " | ".join(generate_ai_titles(kw))
-                })
-                p_bar.progress((idx + 1) / len(final_keywords))
-
-            # 3. 데이터프레임 생성 및 정렬
-            df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
-            
             # 그래프 출력
             fig = px.bar(
-                df, x='키워드', y='블루오션지수',
-                color='블루오션지수',
+                df, x='키워드', y='지수', color='지수', 
                 color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
-                range_y=[0, 10],
-                title=f"🌊 {search_name} 블루오션 등급 분석"
+                range_y=[0, 10], 
+                title=f"🌊 {search_name} 블루오션 정밀 분석"
             )
             fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
             
-            # 4. 등급별 요약 표 출력 (이종호님이 찾으시던 그 표!)
             st.subheader("📑 실시간 블루오션 전략 리포트")
-            
-            # 표 디자인 개선: 등급 컬럼을 맨 앞으로
             st.dataframe(df, use_container_width=True, hide_index=True)
-            
             st.balloons()
-
+            
 # 5. 본문 프롬프트 생성기
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
@@ -276,6 +230,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
