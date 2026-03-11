@@ -78,54 +78,58 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 쇼핑 데이터를 안전하게 불러오는 중...'):
+        with st.spinner('네이버 서버와 정밀 통신 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 데이터 집계 안전권인 4일 전부터 14일 전까지 조회
-                for i in range(4, 15):
+                # 데이터가 가장 확실히 존재하는 4일 전부터 10일 전까지 조회
+                for i in range(4, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # 네이버 공식 문서 권장 최소 필수 데이터 구조
+                    # [최후의 보루] 네이버 공식 문서의 'keyword' 필수 객체 구조입니다.
+                    # sub_cat(예: 아동의류)을 검색 키워드로 활용하여 에러를 원천 차단합니다.
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
                         "category": str(selected_category_id),
-                        "keyword": [{"name": str(sub_cat), "param": [str(sub_cat)]}]
+                        "keyword": [
+                            {
+                                "name": str(sub_cat), 
+                                "param": [str(sub_cat)]
+                            }
+                        ]
                     }
                     
-                    # json=payload를 사용하면 requests 라이브러리가 자동으로 UTF-8 인코딩을 처리합니다.
+                    # 가장 에러가 적은 기본 엔드포인트 사용
                     res = requests.post(
                         "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
-                        json=payload
+                        json=payload # json= 을 써야 인코딩 에러가 없습니다.
                     )
                     
                     if res.status_code == 200:
                         data = res.json()
                         if 'results' in data and data['results'][0].get('data'):
+                            # 해당 카테고리 연관 키워드 추출
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
-                            st.write(f"✅ {target_date} 데이터를 성공적으로 가져왔습니다!")
+                            st.write(f"✅ {target_date} 데이터 분석 성공!")
                             break
                     else:
-                        # 에러 발생 시 상세 이유 출력 (디버깅용)
-                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code}")
+                        # 실패 원인 상세 출력 (400 에러 내용 확인용)
+                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 날짜 조회에 실패했습니다. API 키 입력 시 앞뒤 공백이 없는지 다시 확인해 주세요.")
+                    st.error("⚠️ 모든 형식을 맞췄으나 실패했습니다. ID/Secret에 오타가 없는지 한 번만 더 봐주세요!")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 로직 (이하 동일)
+            # 결과 처리 및 리포트 (이하 동일)
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    r_blog = requests.get(
-                        f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
-                        headers=headers
-                    )
+                    r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                     results.append({"키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
@@ -135,7 +139,7 @@ if st.button("🚀 심층 분석 시작"):
                 st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, use_container_width=True)
-
+                
 # 5. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
@@ -175,6 +179,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
