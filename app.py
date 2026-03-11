@@ -78,10 +78,10 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 쇼핑의 숨은 꿀 키워드를 찾는 중...'):
+        with st.spinner('네이버 쇼핑의 숨은 알맹이를 탈탈 털어오는 중...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 데이터 집계가 확실한 5일 전부터 15일 전까지 거꾸로 훑습니다.
+                # 5일 전부터 15일 전까지 안전하게 훑습니다.
                 for i in range(5, 16):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
@@ -101,42 +101,37 @@ if st.button("🚀 심층 분석 시작"):
                     
                     if res.status_code == 200:
                         data = res.json()
-                        # [무적의 그물망 로직] 어떤 구조로 오든 키워드를 찾아냅니다.
                         try:
-                            # 1단계: results 리스트 확보
+                            # [핵심 수술] 어떤 이름표(key)를 쓰든 데이터 리스트를 찾아냅니다.
                             results = data.get('results', [])
                             if results and isinstance(results, list):
-                                # 2단계: 첫 번째 결과의 data 리스트 확보
                                 raw_items = results[0].get('data', [])
                                 if raw_items:
-                                    # 3단계: group, keyword, title 중 있는 걸로 추출
-                                    final_keywords = [
-                                        item.get('group', item.get('keyword', item.get('title', ''))) 
-                                        for item in raw_items[:15]
-                                    ]
-                                    # 4단계: 빈 값 제거
-                                    final_keywords = [k for k in final_keywords if k]
+                                    # 이름표가 group, keyword, title, name, item 무엇이든 다 체크!
+                                    for item in raw_items[:20]:
+                                        val = item.get('group') or item.get('keyword') or item.get('title') or item.get('name') or item.get('item')
+                                        if val:
+                                            final_keywords.append(val)
                                     
                                     if final_keywords:
                                         success = True
-                                        st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 발견했습니다!")
+                                        st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 드디어 찾았습니다!")
                                         break
-                        except Exception as e:
+                        except Exception:
                             continue
                     else:
                         st.write(f"🔍 {target_date} 시도 중... (상태: {res.status_code})")
 
                 if not success:
-                    st.error("⚠️ 데이터를 수신했으나 알맹이가 없습니다. 카테고리를 '식품'이나 '육아'로 바꿔서 시도해 보세요!")
+                    st.error("⚠️ 네이버가 빈 보따리를 줍니다. '출산/육아' > '아동의류' 카테고리로 한 번만 테스트해 봐주세요!")
             else:
-                # 수동 입력 기능
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
         # 결과 처리 (블로그 검색량 비교 및 리포트 출력)
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
-            st.info(f"🔎 추출된 {len(final_keywords)}개 키워드의 블루오션 지수를 분석합니다...")
+            st.info(f"🔎 찾은 키워드들의 블루오션 지수를 분석합니다!")
             
             for idx, kw in enumerate(final_keywords):
                 r_blog = requests.get(
@@ -153,7 +148,6 @@ if st.button("🚀 심층 분석 시작"):
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 결과 리포트 출력
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
             st.subheader("📑 실시간 블루오션 전략 리포트")
@@ -198,6 +192,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
