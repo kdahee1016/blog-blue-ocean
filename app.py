@@ -66,7 +66,6 @@ if st.button("🚀 심층 분석 시작"):
     if not c_id or not c_secret:
         st.warning("⚠️ API 키를 입력해주세요!")
     else:
-        # 헤더 설정 (공백 제거)
         headers = {
             "X-Naver-Client-Id": c_id.strip(),
             "X-Naver-Client-Secret": c_secret.strip(),
@@ -74,70 +73,61 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('인기 급상승 키워드를 수집 중입니다...'):
+        with st.spinner('네이버 서버와 통신 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # D-3부터 시도 (최근 데이터가 가장 정확합니다)
                 for i in range(3, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [랭킹 API 전용 최적화 구조]
-                    # 이 API는 keyword 필드를 복잡하게 요구하지 않습니다.
+                    # [필살기] 네이버가 요구하는 'keyword' 필수 속성을 객체 리스트 형태로 구현
+                    # sub_cat(예: 아동의류)을 검색 키워드로 활용합니다.
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
                         "category": str(selected_category_id),
-                        "device": "",
-                        "gender": "",
-                        "ages": []
+                        "keyword": [{"name": sub_cat, "param": [sub_cat]}] 
                     }
                     
-                    # 주소 끝이 'keyword/top10'인 것이 핵심입니다!
+                    # 주소를 다시 기본형인 keywords로 안정화합니다.
                     res = requests.post(
-                        "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top10", 
+                        "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
-                        data=json.dumps(payload)
+                        data=json.dumps(payload, ensure_ascii=False).encode('utf-8')
                     )
                     
                     if res.status_code == 200:
                         data = res.json()
-                        # 네이버 랭킹 데이터 구조에 맞춰 키워드 추출
                         if 'results' in data and data['results'][0].get('data'):
+                            # 네이버가 돌려준 연관 키워드들 추출
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
-                            st.write(f"✅ {target_date} 인기 랭킹 수집 성공!")
+                            st.write(f"✅ {target_date} 데이터 수집 성공!")
                             break
                     else:
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 주소와 형식을 시도했으나 네이버에서 거절했습니다. API 일일 호출 한도가 초과되었거나, 권한이 '쇼핑인사이트'가 아닌 다른 것인지 다시 확인이 필요합니다.")
+                    st.error("⚠️ 모든 형식을 맞췄으나 네이버가 거부했습니다. API 권한 설정에서 '쇼핑인사이트'가 정확히 체크되어 있는지 다시 확인이 필요합니다.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 (블로그 검색량 비교 및 리포트)
+            # 결과 처리 (데이터프레임 및 리포트)
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 조회 (이건 일반 검색 API라 매우 안정적입니다)
+                    # 블로그 조회 (안정적인 일반 검색 API)
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
-                    # 블루오션 지수 (조회수 대비 경쟁강도 계산)
                     score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
-                    
-                    results.append({
-                        "키워드": kw, 
-                        "블루오션지수": score, 
-                        "AI 제목 추천": " | ".join(generate_ai_titles(kw))
-                    })
+                    results.append({"키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
                     p_bar.progress((idx + 1) / len(final_keywords))
 
-                # 리포트 출력
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
+                
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, use_container_width=True)
 
@@ -180,5 +170,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
