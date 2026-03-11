@@ -106,7 +106,7 @@ if st.button("🚀 심층 분석 시작"):
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 여전히 에러가 발생한다면, API 권한 설정에서 '데이터랩(쇼핑인사이트)'이 정말로 체크되어 있는지 화면 캡처 확인이 필요할 것 같습니다.")
+                    st.error("⚠️ 모든 시도가 실패했습니다. 네이버 개발자 센터에서 '데이터랩(쇼핑인사이트)' 권한이 활성화되어 있는지 다시 확인해주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -166,6 +166,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
