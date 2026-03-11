@@ -128,8 +128,15 @@ if st.button("🚀 심층 분석 시작"):
 
             if not final_keywords:
                 st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
-                if "여행" in search_name or "티켓" in search_name:
-                    suffixes = ["가볼만한곳", "숙소 추천", "패키지", "가격", "예약", "명소", "당일치기", "1박2일", "코스", "꿀팁"]
+                if any(x in search_name for x in ["여행", "티켓", "가볼만한곳"]):
+                    # 단순 '추천'이 아닌, 실제 검색 수요가 높은 롱테일 키워드들
+                    suffixes = [
+                        "아이랑 가볼만한곳", "주차 정보", "입장료 할인", 
+                        "근처 맛집 베스트", "포토존 위치", "방문 전 주의사항", 
+                        "현지인 추천 코스", "무료 입장 꿀팁", "주말 웨이팅 후기", 
+                        "숙소 근처 식당", "내돈내산 솔직후기", "실내 데이트 코스"
+                    ]
+                    final_keywords = [f"{search_name} {s}" for s in suffixes]
                 elif "의류" in search_name or "패션" in search_name:
                     suffixes = ["코디", "사이즈", "추천", "브랜드", "신상", "데일리룩", "후기", "하객룩", "가성비", "쇼핑몰"]
                 elif "식품" in search_name or "음식" in search_name:
@@ -258,6 +265,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
