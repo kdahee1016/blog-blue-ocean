@@ -145,20 +145,20 @@ if st.button("🚀 심층 분석 시작"):
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
         # 2. 결과 분석 및 출력
-        if final_keywords:
+if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
-for idx, kw in enumerate(final_keywords):
-                # 1. 블로그 발행량 조회
+            # 1. 데이터 수집 루프 (키워드 하나씩 분석)
+            for idx, kw in enumerate(final_keywords):
+                # 블로그 발행량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 0) if r_blog.status_code == 200 else 0
                 
-                # 2. 검색 트렌드(검색수 비중) 조회 
-                # 데이터랩 API를 활용해 해당 키워드의 상대적 검색 강도를 측정합니다.
+                # 검색 트렌드 조회
                 url_trend = "https://openapi.naver.com/v1/datalab/search"
                 yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                 last_month = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
@@ -173,18 +173,14 @@ for idx, kw in enumerate(final_keywords):
                 res_trend = requests.post(url_trend, headers=headers, json=payload_trend)
                 search_ratio = 0
                 if res_trend.status_code == 200:
-                    data_trend = res_trend.json().get('results', [{}])[0].get('data', [])
-                    if data_trend:
-                        search_ratio = data_trend[0].get('ratio', 0) # 최근 한 달 검색 비중
+                    res_data = res_trend.json().get('results', [{}])[0].get('data', [])
+                    if res_data:
+                        search_ratio = res_data[0].get('ratio', 0)
 
-                # 3. 통합 블루오션 지수 계산 (오늘 오전 논의된 디테일 반영)
-                # 검색수 비중이 높고(인기), 발행량이 적을수록 점수가 폭발합니다.
+                # 통합 블루오션 지수 계산 (수요/공급 밸런스)
                 if b_cnt > 0:
-                    # 발행량 감점 수치 (로그 가중치 2.2로 상향)
                     supply_score = math.log10(b_cnt) * 2.2 
-                    # 검색량 가산점 (비중에 따라 최대 2점 추가)
                     demand_score = (search_ratio / 50) 
-                    
                     score = round(max(0.1, min(10.0, (10.0 - supply_score + demand_score))), 2)
                 else:
                     score = 9.99
@@ -199,28 +195,30 @@ for idx, kw in enumerate(final_keywords):
                     "등급": grade, 
                     "키워드": kw, 
                     "발행량": f"{b_cnt:,}건", 
-                    "검색강도": f"{search_ratio:.1f}%", # 상대적 검색 비중
+                    "검색강도": f"{search_ratio:.1f}%",
                     "블루오션지수": score, 
                     "AI 제목": " | ".join(generate_ai_titles(kw))
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 데이터프레임 생성 및 출력
+            # 2. 결과 데이터 정리 (for 루프 밖으로 한 칸 나오기!)
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             
-            # 그래프: 검색강도와 지수를 동시에 시각화
+            # 3. 그래프 출력
             fig = px.bar(
                 df, x='키워드', y='블루오션지수', color='블루오션지수',
                 color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'],
-                title=f"🌊 {search_name} 발행량 vs 검색수 통합 분석",
+                title=f"🌊 {search_name} 블루오션 통합 분석",
                 hover_data=['발행량', '검색강도']
             )
             fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
             
+            # 4. 리포트 표 출력
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True, hide_index=True)
             st.balloons()
+            
             
 # 5. 본문 프롬프트 생성기
 st.markdown("---")
@@ -260,11 +258,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
-
-
-
-
-
-
 
