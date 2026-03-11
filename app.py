@@ -149,42 +149,71 @@ if st.button("🚀 심층 분석 시작"):
             results_list = []
             p_bar = st.progress(0)
             
-            for idx, kw in enumerate(final_keywords):
+for idx, kw in enumerate(final_keywords):
+                # 1. 블로그 발행량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
-                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 0
+                b_cnt = r_blog.json().get('total', 0) if r_blog.status_code == 200 else 0
                 
-                # 지수 계산법 (발행량 기반)
-                if b_cnt > 10:
-                    score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.45)), 2)
+                # 2. 검색 트렌드(검색수 비중) 조회 
+                # 데이터랩 API를 활용해 해당 키워드의 상대적 검색 강도를 측정합니다.
+                url_trend = "https://openapi.naver.com/v1/datalab/search"
+                yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                last_month = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+                
+                payload_trend = {
+                    "startDate": last_month,
+                    "endDate": yesterday,
+                    "timeUnit": "month",
+                    "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
+                }
+                
+                res_trend = requests.post(url_trend, headers=headers, json=payload_trend)
+                search_ratio = 0
+                if res_trend.status_code == 200:
+                    data_trend = res_trend.json().get('results', [{}])[0].get('data', [])
+                    if data_trend:
+                        search_ratio = data_trend[0].get('ratio', 0) # 최근 한 달 검색 비중
+
+                # 3. 통합 블루오션 지수 계산 (오늘 오전 논의된 디테일 반영)
+                # 검색수 비중이 높고(인기), 발행량이 적을수록 점수가 폭발합니다.
+                if b_cnt > 0:
+                    # 발행량 감점 수치 (로그 가중치 2.2로 상향)
+                    supply_score = math.log10(b_cnt) * 2.2 
+                    # 검색량 가산점 (비중에 따라 최대 2점 추가)
+                    demand_score = (search_ratio / 50) 
+                    
+                    score = round(max(0.1, min(10.0, (10.0 - supply_score + demand_score))), 2)
                 else:
-                    score = round(9.5 + (len(kw) * 0.01), 2)
-                
+                    score = 9.99
+
                 # 등급 판정
                 if score >= 8.5: grade = "💎 다이아몬드"
-                elif score >= 7.0: grade = "🥇 골드"
-                elif score >= 4.0: grade = "🥈 실버"
+                elif score >= 6.5: grade = "🥇 골드"
+                elif score >= 3.5: grade = "🥈 실버"
                 else: grade = "🥉 브론즈"
 
                 results_list.append({
                     "등급": grade, 
                     "키워드": kw, 
                     "발행량": f"{b_cnt:,}건", 
-                    "지수": score, 
+                    "검색강도": f"{search_ratio:.1f}%", # 상대적 검색 비중
+                    "블루오션지수": score, 
                     "AI 제목": " | ".join(generate_ai_titles(kw))
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
+            # 데이터프레임 생성 및 출력
+            df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             
-            # 그래프 출력
+            # 그래프: 검색강도와 지수를 동시에 시각화
             fig = px.bar(
-                df, x='키워드', y='지수', color='지수', 
-                color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
-                range_y=[0, 10], 
-                title=f"🌊 {search_name} 블루오션 정밀 분석"
+                df, x='키워드', y='블루오션지수', color='블루오션지수',
+                color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'],
+                title=f"🌊 {search_name} 발행량 vs 검색수 통합 분석",
+                hover_data=['발행량', '검색강도']
             )
             fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
@@ -231,6 +260,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
