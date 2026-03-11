@@ -119,6 +119,8 @@ if st.button("🚀 심층 분석 시작"):
                     final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
             except: pass
 
+if mode == "실시간 핫 키워드":
+            # ... 네이버 API 호출 로직 ...
             if not final_keywords:
                 st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
                 if "여행" in search_name or "티켓" in search_name:
@@ -132,9 +134,11 @@ if st.button("🚀 심층 분석 시작"):
                 else:
                     suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
                 final_keywords = [f"{search_name} {s}" for s in suffixes]
-else:
+        else:
+            # 직접 입력 모드일 때
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
+        # 분석 결과 출력 (모든 키워드가 준비된 후 실행)
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
@@ -142,11 +146,10 @@ else:
                 r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 0
                 
-                # [수정] 지수 계산법: 발행량이 0이더라도 9.99 도배를 막기 위해 아주 미세한 변동을 줍니다.
+                # 지수 계산법: 발행량이 아주 적을 때도 키워드 길이에 따라 미세하게 차등
                 if b_cnt > 10:
                     score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.45)), 2)
                 else:
-                    # 발행량이 아주 적을 때도 키워드 길이에 따라 점수를 차등화해서 그래프를 다르게 만듭니다.
                     score = round(9.5 + (len(kw) * 0.01), 2)
                 
                 # 등급 판정
@@ -165,12 +168,14 @@ else:
                 p_bar.progress((idx + 1) / len(final_keywords))
 
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
-            # 색상 스케일을 빨강-노랑-파랑으로 더 뚜렷하게!
+            
+            # 그래프 및 표 출력
             fig = px.bar(df, x='키워드', y='지수', color='지수', 
                          color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
-                         range_y=[0, 10], title=f"🌊 {search_name} 블루오션 정밀 분석")
+                         range_y=[0, 10], title=f"🌊 {search_name if mode == '실시간 핫 키워드' else '직접 입력'} 블루오션 정밀 분석")
             fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
+            
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True, hide_index=True)
             st.balloons()
@@ -271,6 +276,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
