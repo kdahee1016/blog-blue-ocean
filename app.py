@@ -65,7 +65,6 @@ def generate_ai_titles(keyword):
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
-    # ID와 Secret의 앞뒤 공백을 완벽히 제거합니다.
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
 
@@ -79,52 +78,42 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 서버와 정밀 통신 중입니다...'):
+        with st.spinner('네이버 쇼핑 데이터를 안전한 과거 시점부터 정밀 분석 중...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # 데이터 집계가 확실한 5일 전부터 조회
-                for i in range(5, 15):
+                # [수정] 데이터 집계가 완벽히 끝난 5일 전부터 15일 전까지 조회합니다.
+                for i in range(5, 16):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [최종병기] 네이버 공식 문서의 샘플 구조와 100% 일치시켰습니다.
-                    # 필수 필드인 device, gender, ages를 빈 값으로라도 넣어주어야 안전합니다.
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
                         "category": str(selected_category_id),
-                        "keyword": [
-                            {
-                                "name": str(sub_cat), 
-                                "param": [str(sub_cat)]
-                            }
-                        ],
-                        "device": "",
-                        "gender": "",
-                        "ages": []
+                        "keyword": [{"name": str(sub_cat), "param": [str(sub_cat)]}]
                     }
                     
-                    # 가장 안정적인 공식 엔드포인트 주소
                     res = requests.post(
                         "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
-                        json=payload  # json 파라미터를 쓰면 requests가 알아서 형식을 맞춥니다.
+                        json=payload 
                     )
                     
                     if res.status_code == 200:
                         data = res.json()
+                        # 네이버 응답 구조가 'results' 안에 데이터가 있는지 꼼꼼히 체크
                         if 'results' in data and data['results'][0].get('data'):
-                            # 해당 카테고리에서 가장 핫한 연관 키워드 추출
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
-                            success = True
-                            st.write(f"✅ {target_date} 데이터 분석 성공!")
-                            break
+                            if final_keywords: # 키워드가 실제로 들어있을 때만 성공 처리
+                                success = True
+                                st.write(f"✅ {target_date} 데이터 분석에 성공했습니다!")
+                                break
                     else:
-                        # 에러 발생 시 로그 출력 (디버깅용)
-                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
-                
+                        # 디버깅용 로그 (401이나 403이 뜨면 키 문제, 400은 날짜/형식 문제)
+                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code}")
+
                 if not success:
-                    st.error("⚠️ 네이버 설정은 완벽하나 통신 규격 오류가 반복됩니다. ID/Secret을 다시 한번 복사해 넣어주세요!")
+                    st.error("⚠️ 선택하신 카테고리에 최근 생성된 데이터가 없습니다. 다른 하위 카테고리로도 테스트해 보세요!")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -133,11 +122,10 @@ if st.button("🚀 심층 분석 시작"):
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 조회 (일반 검색 API)
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
-                    # 블루오션 지수 계산
+                    # 블루오션 지수 (조회수 대비 경쟁강도)
                     score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                     
                     results.append({
@@ -147,7 +135,7 @@ if st.button("🚀 심층 분석 시작"):
                     })
                     p_bar.progress((idx + 1) / len(final_keywords))
 
-                # 리포트 출력
+                # 리포트 출력 (이 부분이 드디어 화면에 뜹니다!)
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
                 st.subheader("📑 AI 전략 리포트")
@@ -192,6 +180,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
