@@ -66,7 +66,6 @@ if st.button("🚀 심층 분석 시작"):
     if not c_id or not c_secret:
         st.warning("⚠️ API 키를 입력해주세요!")
     else:
-        # Client ID/Secret 앞뒤 공백 제거는 필수!
         headers = {
             "X-Naver-Client-Id": c_id.strip(),
             "X-Naver-Client-Secret": c_secret.strip(),
@@ -74,26 +73,22 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 쇼핑 랭킹을 가져오는 중...'):
+        with st.spinner('실시간 인기 랭킹을 수집 중입니다...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                # D-3부터 시도 (가장 최신 데이터)
                 for i in range(3, 11):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # [랭킹 API 표준 구조] keyword 필드를 아예 삭제했습니다.
-                    # 이 주소(top10)에서는 이 구조가 정석입니다.
+                    # [필살기] 에러를 일으키는 모든 선택 필드를 삭제했습니다.
+                    # 오직 필수 4개 필드만 남긴 가장 순수한 JSON 구조입니다.
                     s_body = {
                         "startDate": target_date,
                         "endDate": target_date,
                         "timeUnit": "date",
-                        "category": str(selected_category_id),
-                        "device": "",
-                        "gender": "",
-                        "ages": []
+                        "category": str(selected_category_id)
                     }
                     
-                    # 주소 끝단을 'category/keyword/top10'으로 확실히 고정!
+                    # 주소 끝이 'keyword/top10'인 것이 랭킹 수집의 핵심입니다!
                     res = requests.post(
                         "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top10", 
                         headers=headers, 
@@ -108,19 +103,18 @@ if st.button("🚀 심층 분석 시작"):
                             st.write(f"✅ {target_date} 랭킹 수집 성공!")
                             break
                     else:
-                        st.write(f"🔍 {target_date} 시도: {res.status_code} ({res.text})")
+                        st.write(f"🔍 {target_date} 시도 결과: {res.status_code} ({res.text})")
                 
                 if not success:
-                    st.error("⚠️ 모든 시도가 실패했습니다. API 권한에 '데이터랩(쇼핑인사이트)'이 있는지 다시 확인해주세요.")
+                    st.error("⚠️ 여전히 에러가 발생한다면, API 권한 설정에서 '데이터랩(쇼핑인사이트)'이 정말로 체크되어 있는지 화면 캡처 확인이 필요할 것 같습니다.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 (블로그 검색량 비교)
+            # 결과 처리 및 리포트 출력 (기존과 동일)
             if final_keywords:
                 results = []
                 p_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 검색 (이건 일반 검색 API라 잘 작동합니다)
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
@@ -172,6 +166,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
