@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from bs4 import BeautifulSoup
 import json
 import pandas as pd
 from datetime import datetime, timedelta
@@ -51,57 +52,43 @@ else:
     user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집")
     search_name = "직접 입력"
 
-def generate_ai_titles(keyword):
-    # 1. 여행/티켓/장소 관련 키워드용 (맛집, 코스 위주)
-    if any(x in keyword for x in ["여행", "가볼만한곳", "코스", "티켓", "관광", "명소"]):
-        travel_templates = [
-            f"{keyword} 현지인 추천 맛집 리스트 공유",
-            f"{keyword} 아이랑 가기 좋은 실내 코스 정리",
-            f"{keyword} 주차장 정보 및 입장료 총정리",
-            f"{keyword} 직접 다녀온 당일치기 여행 코스",
-            f"{keyword} 숨겨진 명소와 포토존 위치 정보",
-            f"{keyword} 근처 식당 솔직한 방문 후기",
-            f"{keyword} 주말 나들이 가기 전 꼭 알아야 할 점",
-            f"{keyword} 대기 시간 줄이는 예약 꿀팁 공유",
-            f"{keyword} 연령대별 선호하는 관광 포인트 분석",
-            f"{keyword} 숙소 선정 시 주의사항 및 가격 비교",
-            f"{keyword} 야경 예쁜 곳과 산책로 동선 추천",
-            f"{keyword} 부모님 모시고 가기 좋은 식당 정보",
-            f"{keyword} 시즌별 운영 시간 및 휴무일 안내",
-            f"{keyword} 뚜벅이 여행자를 위한 대중교통 이용법",
-            f"{keyword} 비 오는 날 갈만한 실내 장소 추천",
-            f"{keyword} 실패 없는 1박 2일 여행 일정표",
-            f"{keyword} 사진 잘 나오는 시간대와 촬영 포인트",
-            f"{keyword} 입장권 할인 받는 방법과 구매처 정보",
-            f"{keyword} 주변 카페 투어 및 디저트 맛집 분석",
-            f"{keyword} 여행 가방 준비물 리스트 체크사항"
-        ]
-        return random.sample(travel_templates, 3)
-    # 2. 스킨케어/육아/식품/의류 등 일반 상품용
+    def get_naver_related_keywords(keyword):
+        """
+        네이버 검색 결과 페이지에서 연관검색어를 추출합니다.
+        """
+        url = f"https://search.naver.com/search.naver?query={keyword}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+        }
+        
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 네이버 연관검색어 영역 선택자 (네이버 개편에 따라 변경될 수 있음)
+        related_tags = soup.select(".lst_related_srch .tit")
+        
+        related_keywords = [tag.get_text().strip() for tag in related_tags]
+        return related_keywords
+    
+    # --- Streamlit UI 부분 ---
+    # 기존 제목 추천 코드는 삭제하거나 주석 처리하세요.
+    
+    st.subheader(f"🔍 '{keyword}' 연관검색어 리스트")
+    related_list = get_naver_related_keywords(keyword)
+    
+    if related_list:
+        # 보기 좋게 표나 태그 형태로 출력
+        st.success(f"총 {len(related_list)}개의 연관검색어를 찾았습니다.")
+        
+        # 2열로 나누어 출력하거나 리스트로 나열
+        cols = st.columns(2)
+        for i, rel_kw in enumerate(related_list):
+            cols[i % 2].write(f"• {rel_kw}")
+            
+        # 복사하기 편하도록 텍스트 데이터로도 제공
+        st.text_area("연관검색어 전체 복사", value=", ".join(related_list))
     else:
-        product_templates = [
-            f"{keyword} 내돈내산 한 달 사용 후기 정리",
-            f"{keyword} 성분 분석 및 피부 타입별 주의사항",
-            f"{keyword} 사이즈 선택 가이드 및 실착용 데이터",
-            f"{keyword} 가성비 좋은 브랜드 제품별 특징 비교",
-            f"{keyword} 장단점 확실하게 정리한 구매 가이드",
-            f"{keyword} 유통기한 확인법 및 올바른 보관 방법",
-            f"{keyword} 실제 사용자들의 평점 및 만족도 분석",
-            f"{keyword} 최저가 구매처 및 할인 프로모션 정보",
-            f"{keyword} 부작용 유무와 안전성 테스트 결과 공유",
-            f"{keyword} 초보자를 위한 단계별 사용법 안내",
-            f"{keyword} 비슷한 가격대 타사 제품과 정밀 비교",
-            f"{keyword} 재구매 의사 결정에 도움 되는 정보",
-            f"{keyword} 선물용으로 적합한 패키지 구성 확인",
-            f"{keyword} 실물 색상과 가장 유사한 촬영 사진",
-            f"{keyword} 세탁 및 관리 시 주의해야 할 포인트",
-            f"{keyword} 맛과 식감 위주의 솔직한 시식 기록",
-            f"{keyword} 아이에게 안전한 소재인지 확인한 결과",
-            f"{keyword} 계절별 활용도 및 코디 연출 방법",
-            f"{keyword} 단독 사용 시와 병행 사용 시 차이점",
-            f"{keyword} 공식 홈페이지와 오픈마켓 가격 차이 분석"
-        ]
-        return random.sample(product_templates, 3)
+        st.info("현재 해당 키워드에 대한 연관검색어가 없거나 불러올 수 없습니다.")
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
@@ -244,3 +231,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
