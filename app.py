@@ -70,10 +70,9 @@ if st.button("🚀 심층 분석 시작"):
         "Content-Type": "application/json"
     }
 
-    # [수정] 변수 초기화 위치를 버튼 클릭 직후로 이동하여 NameError 방지
     final_keywords = []
 
-    with st.spinner('선택하신 카테고리에 딱 맞는 키워드를 분석 중입니다...'):
+    with st.spinner('실시간 블로그 발행량을 정밀 조사 중입니다...'):
         if mode == "실시간 핫 키워드":
             search_name = sub_cat if sub_cat else "인기상품"
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
@@ -100,12 +99,10 @@ if st.button("🚀 심층 분석 시작"):
                     suffixes = ["추천", "사이즈", "선물", "인기순위", "체험단", "내돈내산", "공구", "할인", "사용법", "신학기"]
                 else:
                     suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
-                
                 final_keywords = [f"{search_name} {s}" for s in suffixes]
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-        # 2. 블로그 지수 분석 및 그래프 출력 (버튼 클릭 스코프 안으로 정렬 완료)
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
@@ -115,28 +112,99 @@ if st.button("🚀 심층 분석 시작"):
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
+                # 데이터가 없으면 0이 아니라 최소 1로 잡아 로그 에러 방지
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
+                
+                # [수정] 디테일한 블루오션 지수 계산식 (오늘 오전 논의 반영)
+                # 발행량이 많을수록 감점 폭을 키우고(1.1 -> 1.3), 기본 점수를 조정했습니다.
+                if b_cnt > 1:
+                    score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.35)), 2)
+                else:
+                    score = 9.99 # 발행량이 아예 없으면 최상위 점수
                 
                 results_list.append({
-                    "키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))
+                    "키워드": kw, 
+                    "블로그 발행량": f"{b_cnt:,}건",
+                    "블루오션지수": score, 
+                    "AI 제목 추천": " | ".join(generate_ai_titles(kw))
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             
-            # [색상] 0점(레드) = 빨강, 10점(블루) = 파랑
+            # [색상 수정] 레드(0점) -> 옐로우(5점) -> 블루(10점)
             fig = px.bar(
                 df, x='키워드', y='블루오션지수',
                 color='블루오션지수',
-                color_continuous_scale=['#FF0000', '#FFFF00', '#00FF00', '#0000FF'], 
+                # 컬러 스케일을 더 직관적인 3단계로 구성
+                color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
                 range_y=[0, 10],
-                title=f"🌊 블루오션 지수 (파란색일수록 경쟁이 적어요!)"
+                title=f"🌊 {search_name} 정밀 분석 (파란색일수록 발행량이 적은 블루오션!)"
             )
+            # 수치가 잘 보이게 텍스트 추가
+            fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
             
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True)
+            st.balloons()
+
+if final_keywords:
+            results_list = []
+            p_bar = st.progress(0)
+            
+            for idx, kw in enumerate(final_keywords):
+                r_blog = requests.get(
+                    f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
+                    headers=headers
+                )
+                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
+                
+                # 1. 정밀 지수 계산 (발행량 감점 강화)
+                if b_cnt > 1:
+                    score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.35)), 2)
+                else:
+                    score = 9.99
+                
+                # 2. [추가] 다이아몬드~브론즈 등급 판정 로직
+                if score >= 8.5:
+                    grade = "💎 다이아몬드 (무조건 써야 함)"
+                elif score >= 7.0:
+                    grade = "🥇 골드 (상위노출 확률 높음)"
+                elif score >= 4.0:
+                    grade = "🥈 실버 (경쟁이 좀 있음)"
+                else:
+                    grade = "🥉 브론즈 (레드오션 주의)"
+
+                results_list.append({
+                    "등급": grade,
+                    "키워드": kw, 
+                    "블로그 발행량": f"{b_cnt:,}건",
+                    "블루오션지수": score, 
+                    "AI 제목 추천": " | ".join(generate_ai_titles(kw))
+                })
+                p_bar.progress((idx + 1) / len(final_keywords))
+
+            # 3. 데이터프레임 생성 및 정렬
+            df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
+            
+            # 그래프 출력
+            fig = px.bar(
+                df, x='키워드', y='블루오션지수',
+                color='블루오션지수',
+                color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
+                range_y=[0, 10],
+                title=f"🌊 {search_name} 블루오션 등급 분석"
+            )
+            fig.update_traces(texttemplate='%{y}', textposition='outside')
+            st.plotly_chart(fig)
+            
+            # 4. 등급별 요약 표 출력 (이종호님이 찾으시던 그 표!)
+            st.subheader("📑 실시간 블루오션 전략 리포트")
+            
+            # 표 디자인 개선: 등급 컬럼을 맨 앞으로
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
             st.balloons()
 
 # 5. 본문 프롬프트 생성기
@@ -177,4 +245,5 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
