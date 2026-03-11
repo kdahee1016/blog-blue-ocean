@@ -73,11 +73,10 @@ if st.button("🚀 심층 분석 시작"):
         "X-Naver-Client-Secret": clean_secret,
         "Content-Type": "application/json"
     }
-    final_keywords = []
 
-    with st.spinner('네이버 쇼핑 데이터를 분석 중입니다...'):
+    with st.spinner('네이버 쇼핑의 진짜 알맹이를 탈탈 털어오는 중...'):
         if mode == "실시간 핫 키워드":
-            # 가장 안정적인 1주일 전 데이터 하나를 타겟팅
+            # 7일 전 데이터가 가장 안정적입니다.
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             search_name = sub_cat if sub_cat else "인기상품"
             
@@ -98,38 +97,43 @@ if st.button("🚀 심층 분석 시작"):
             if res.status_code == 200:
                 data = res.json()
                 try:
-                    # 네이버 쇼핑인사이트 응답 구조에서 키워드 추출
-                    items = data['results'][0]['data']
-                    final_keywords = [item.get('group', item.get('keyword', item.get('title', ''))) for item in items[:15]]
-                    final_keywords = [k for k in final_keywords if k] # 빈값 제거
+                    # [핵심 수술] 어떤 이름표(key)를 쓰든 리스트를 찾아냅니다.
+                    results = data.get('results', [])
+                    if results:
+                        raw_items = results[0].get('data', [])
+                        # 이름표가 name, group, keyword, title 무엇이든 다 체크!
+                        extracted = []
+                        for item in raw_items[:20]:
+                            # 하나라도 걸려라! 하는 마음으로 모든 가능성을 열어둡니다.
+                            val = item.get('name') or item.get('group') or item.get('keyword') or item.get('title')
+                            if val:
+                                extracted.append(val)
+                        
+                        final_keywords = extracted
                     
                     if final_keywords:
-                        st.success(f"✅ {search_name} 관련 핫 키워드 {len(final_keywords)}개 추출 성공!")
+                        st.success(f"✅ {search_name} 카테고리 핫 키워드 {len(final_keywords)}개 발견!")
                     else:
-                        st.warning("⚠️ 키워드 알맹이가 비어있습니다. 다른 카테고리를 골라주세요.")
-                except:
-                    st.error("⚠️ 데이터 구조 분석에 실패했습니다.")
+                        st.error("⚠️ 데이터 구조는 맞으나 내용물이 정말 비어있습니다. 다른 카테고리로 시도해 주세요.")
+                except Exception as e:
+                    st.error(f"⚠️ 분석 중 오류 발생: {e}")
             else:
-                st.error(f"🚫 네이버 응답 에러: {res.status_code}")
+                st.error(f"🚫 네이버 응답 에러: {res.status_code} ({res.text})")
 
         else:
-            # 수동 입력 모드
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-        # --- 여기서부터가 화면에 그래프를 그리는 핵심 코드입니다 ---
+        # --- 그래프 출력 로직 (이 부분이 실행되어야 화면에 뜹니다!) ---
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # 블로그 검색량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                
-                # 블루오션 지수 계산
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
@@ -139,18 +143,11 @@ if st.button("🚀 심층 분석 시작"):
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 데이터프레임 생성 및 정렬
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
-            
-            # 1. 막대 그래프 출력
-            st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', 
-                                   range_y=[0, 10], title="🔥 실시간 블루오션 지수"))
-            
-            # 2. 상세 리포트 표 출력
+            st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True)
-            
-            st.balloons() # 축하 효과!
+            st.balloons()
                 
 # 5. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
@@ -191,6 +188,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
