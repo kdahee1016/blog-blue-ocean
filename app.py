@@ -65,14 +65,12 @@ def generate_ai_titles(keyword):
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
-    # 입력값에서 양쪽 공백을 완전히 제거(.strip())
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
 
     if not clean_id or not clean_secret:
-        st.warning("⚠️ API 키를 정확히 입력해주세요!")
+        st.warning("⚠️ API 키를 입력해주세요!")
     else:
-        # 헤더 설정 (정제된 키 사용)
         headers = {
             "X-Naver-Client-Id": clean_id,
             "X-Naver-Client-Secret": clean_secret,
@@ -80,13 +78,14 @@ if st.button("🚀 심층 분석 시작"):
         }
         final_keywords = []
 
-        with st.spinner('네이버 쇼핑 데이터를 정밀 분석 중입니다...'):
+        with st.spinner('네이버 쇼핑 데이터를 안전하게 불러오는 중...'):
             if mode == "실시간 핫 키워드":
                 success = False
-                for i in range(3, 11):
+                # 데이터 집계 안전권인 4일 전부터 14일 전까지 조회
+                for i in range(4, 15):
                     target_date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
                     
-                    # 네이버가 요구하는 표준 페이로드
+                    # 네이버 공식 문서 권장 최소 필수 데이터 구조
                     payload = {
                         "startDate": target_date,
                         "endDate": target_date,
@@ -95,7 +94,7 @@ if st.button("🚀 심층 분석 시작"):
                         "keyword": [{"name": str(sub_cat), "param": [str(sub_cat)]}]
                     }
                     
-                    # json= 형식을 쓰면 requests 라이브러리가 알아서 인코딩을 잡아줍니다.
+                    # json=payload를 사용하면 requests 라이브러리가 자동으로 UTF-8 인코딩을 처리합니다.
                     res = requests.post(
                         "https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
                         headers=headers, 
@@ -107,13 +106,14 @@ if st.button("🚀 심층 분석 시작"):
                         if 'results' in data and data['results'][0].get('data'):
                             final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
                             success = True
-                            st.write(f"✅ {target_date} 데이터 분석 성공!")
+                            st.write(f"✅ {target_date} 데이터를 성공적으로 가져왔습니다!")
                             break
                     else:
+                        # 에러 발생 시 상세 이유 출력 (디버깅용)
                         st.write(f"🔍 {target_date} 시도 결과: {res.status_code}")
                 
                 if not success:
-                    st.error("⚠️ 모든 시도가 실패했습니다. API 키 뒤에 공백이 없는지 확인해주세요.")
+                    st.error("⚠️ 모든 날짜 조회에 실패했습니다. API 키 입력 시 앞뒤 공백이 없는지 다시 확인해 주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -175,6 +175,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
