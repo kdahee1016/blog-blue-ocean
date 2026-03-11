@@ -73,14 +73,37 @@ if st.button("🚀 심층 분석 시작"):
         st.warning("⚠️ API 키를 먼저 입력해주세요!")
     else:
         headers = {"X-Naver-Client-Id": c_id, "X-Naver-Client-Secret": c_secret, "Content-Type": "application/json"}
-        final_keywords = [k.strip() for k in user_input.split(",") if k.strip()] if mode == "직접 입력" else []
+        final_keywords = []
+
+        if mode == "실시간 핫 키워드":
+            # 쇼핑 인사이트 API 호출 (에러 확인 로직 강화)
+            t_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
+            s_body = {
+                "startDate": t_date, "endDate": t_date, "timeUnit": "date",
+                "category": str(selected_category_id), "device": "", "gender": "", "ages": []
+            }
+            res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", headers=headers, data=json.dumps(s_body))
+            
+            if res.status_code == 200:
+                data = res.json()
+                if 'results' in data and data['results'][0]['data']:
+                    final_keywords = [item['title'] for item in data['results'][0]['data'][:15]]
+                else:
+                    st.error("⚠️ 해당 카테고리에 데이터가 없습니다. 다른 카테고리를 선택해 보세요.")
+            else:
+                st.error(f"❌ 핫키워드 API 호출 실패: {res.json().get('errorMessage', '알 수 없는 오류')}")
+        else:
+            final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
         if final_keywords:
             results = []
-            for kw in final_keywords:
+            progress_bar = st.progress(0)
+            for idx, kw in enumerate(final_keywords):
+                # 블로그 수 조회
                 r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
+                # 검색 비율 조회
                 s_body = {"startDate": (datetime.now()-timedelta(days=31)).strftime('%Y-%m-%d'), 
                           "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), 
                           "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
@@ -93,9 +116,8 @@ if st.button("🚀 심층 분석 시작"):
                         if n_data: ratio = n_data[-1]['ratio']
                     except: pass
                 
-                # --- 현실 반영 지수 보정 로직 (Indentation 교정 완료) ---
+                # 현실 반영 지수 보정
                 if b_cnt > 0 and ratio > 0.0001:
-                    # 블로그 수가 많을수록 패널티를 주어 점수 인플레이션 방지
                     penalty = math.log10(b_cnt) * 0.6
                     raw_score = (ratio / b_cnt) * 1000000
                     score = (math.log10(raw_score + 1) * 2.2) - penalty
@@ -103,23 +125,21 @@ if st.button("🚀 심층 분석 시작"):
                 else:
                     score = 0.0
 
-                recommended_titles = generate_ai_titles(kw)
                 results.append({
-                    "키워드": kw, 
-                    "블루오션지수": round(score, 2), 
-                    "AI 제목 추천": " | ".join(recommended_titles),
+                    "키워드": kw, "블루오션지수": round(score, 2), 
+                    "AI 제목 추천": " | ".join(generate_ai_titles(kw)),
                     "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                 })
+                progress_bar.progress((idx + 1) / len(final_keywords))
 
             if results:
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
-                
                 st.subheader("📈 키워드 시장성 분석 결과")
-                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
+                fig = px.bar(df, x='키워드', y='블루오션지_수', color='블루오션지수', text='블루오션지수',
                              range_y=[0, 10], range_color=[0, 10],
                              color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']])
-                fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
                 st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(df, use_container_width=True)
 
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, use_container_width=True)
@@ -163,6 +183,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
