@@ -113,28 +113,29 @@ if st.button("🚀 심층 분석 시작"):
 
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
             
-            # --- 그래프 수정: y축 범위 고정 (0~10) ---
+            # --- 그래프 y축 범위 고정 (0~10) ---
             fig = px.bar(
                 df, x='키워드', y='지수', color='시장성',
                 color_discrete_map={"🔵 블루오션": "#0000FF", "🟢 양호": "#00FF00", "🟠 중간": "#FFA500", "🔴 레드오션": "#FF0000"},
                 title="🔍 키워드별 시장성 분석 리포트",
-                range_y=[0, 10]  # 이 부분이 범위를 고정합니다.
+                range_y=[0, 10]
             )
             st.plotly_chart(fig)
             st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
             
-            # --- 연관검색어: 클릭 시 자동 복사 버튼 ---
+            # --- 연관검색어 리스트 (st.code 활용으로 자동 복사 구현) ---
             st.markdown("---")
-            st.subheader("🔗 네이버 연관검색어 (클릭 시 자동 복사)")
+            st.subheader("🔗 네이버 연관검색어 (우측 버튼 클릭 시 복사)")
             for kw in final_keywords:
                 rel_list = related_data.get(kw, [])
                 if rel_list:
                     rel_text = ", ".join(rel_list)
-                    # st.copy_to_clipboard 기능을 사용하여 클릭 시 바로 복사
                     st.write(f"📌 **{kw}**")
-                    st.copy_to_clipboard(rel_text, before_text="복사하기: ", after_text="✅ 복사 완료!")
-                    st.caption(rel_text)
-                    st.write("")
+                    # st.code는 우측 상단에 복사 아이콘이 기본 제공됩니다.
+                    st.code(rel_text, language=None)
+                else:
+                    st.write(f"📌 **{kw}**")
+                    st.caption("관련된 연관검색어가 없습니다.")
             st.balloons()
 
 # 5. 본문 프롬프트 생성기
@@ -175,4 +176,5 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
