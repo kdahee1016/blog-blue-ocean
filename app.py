@@ -77,28 +77,34 @@ if st.button("🚀 심층 분석 시작"):
 
         with st.spinner('데이터를 불러오고 있습니다...'):
             if mode == "실시간 핫 키워드":
+                # [400 에러 해결 핵심] 날짜 범위를 하루가 아닌 3일 정도로 잡고 ages 등 필수 필드 수정
                 success = False
-                # 3일 전부터 10일 전까지 루프 돌며 데이터 확인 (데이터 집계 지연 대응)
                 for day_offset in range(3, 11):
-                    t_date = (datetime.now() - timedelta(days=day_offset)).strftime('%Y-%m-%d')
+                    end_date = (datetime.now() - timedelta(days=day_offset)).strftime('%Y-%m-%d')
+                    start_date = (datetime.now() - timedelta(days=day_offset+2)).strftime('%Y-%m-%d')
+                    
                     s_body = {
-                        "startDate": t_date, "endDate": t_date, "timeUnit": "date",
-                        "category": str(selected_category_id), "device": "", "gender": "", "ages": []
+                        "startDate": start_date,
+                        "endDate": end_date,
+                        "timeUnit": "date",
+                        "category": str(selected_category_id),
+                        "device": "", "gender": "", "ages": [] 
                     }
                     res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", headers=headers, data=json.dumps(s_body))
                     
                     if res.status_code == 200:
                         res_data = res.json()
                         if 'results' in res_data and res_data['results'] and res_data['results'][0]['data']:
-                            final_keywords = [item['title'] for item in res_data['results'][0]['data'][:15]]
+                            # 여러 날짜 중 가장 최근 하루치 키워드만 추출
+                            final_keywords = list(set([item['title'] for item in res_data['results'][0]['data']]))[:15]
                             success = True
-                            st.write(f"✅ {t_date} 기준 데이터 수집 성공!")
+                            st.write(f"✅ {start_date} ~ {end_date} 데이터 수집 성공!")
                             break
                     else:
-                        st.write(f"🔍 {t_date} 시도 결과: {res.status_code} 에러")
+                        st.write(f"🔍 {end_date} 시도 결과: {res.status_code} 에러 ({res.json().get('message', '형식 오류')})")
                 
                 if not success:
-                    st.error("⚠️ 네이버에서 데이터를 가져오지 못했습니다. API 권한(쇼핑인사이트)을 다시 확인해주세요.")
+                    st.error("⚠️ 네이버 서버 응답 형식에 문제가 있습니다. 잠시 후 다시 시도해주세요.")
             else:
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -106,11 +112,9 @@ if st.button("🚀 심층 분석 시작"):
                 results = []
                 progress_bar = st.progress(0)
                 for idx, kw in enumerate(final_keywords):
-                    # 블로그 조회
                     r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                     b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                     
-                    # 검색 비율 조회
                     s_body_trend = {"startDate": (datetime.now()-timedelta(days=31)).strftime('%Y-%m-%d'), 
                                     "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), 
                                     "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
@@ -123,14 +127,12 @@ if st.button("🚀 심층 분석 시작"):
                             if n_data: ratio = n_data[-1]['ratio']
                         except: pass
                     
-                    # 지수 보정 계산 로직 (현실 반영)
                     penalty = math.log10(b_cnt) * 0.6 if b_cnt > 0 else 0
                     raw_score = (ratio / b_cnt) * 1000000
                     score = max(0.0, min(10.0, (math.log10(raw_score + 1) * 2.2) - penalty))
 
                     results.append({
-                        "키워드": kw, 
-                        "블루오션지수": round(score, 2), 
+                        "키워드": kw, "블루오션지수": round(score, 2), 
                         "AI 제목 추천": " | ".join(generate_ai_titles(kw)),
                         "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                     })
@@ -139,11 +141,9 @@ if st.button("🚀 심층 분석 시작"):
                 if results:
                     df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                     st.subheader("📈 키워드 시장성 분석 결과")
-                    fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수',
-                                 range_y=[0, 10], range_color=[0, 10],
-                                 color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']])
-                    fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                    fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수', range_y=[0, 10], color_continuous_scale=[[0, 'red'], [0.5, 'yellow'], [1, 'blue']])
                     st.plotly_chart(fig, use_container_width=True)
+                    st.dataframe(df, use_container_width=True)
 
                     st.subheader("📑 AI 전략 리포트")
                     st.dataframe(df, use_container_width=True)
@@ -187,5 +187,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
