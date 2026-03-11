@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import urllib.parse
 import math
+import random
 
 # 1. 페이지 설정
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
@@ -230,6 +231,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
