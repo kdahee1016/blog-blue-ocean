@@ -38,12 +38,18 @@ category_map = {
 
 mode = st.radio("분석 방식 선택", ["직접 입력", "실시간 핫 키워드"])
 
+# 초기 변수 설정
+search_name = ""
+selected_category_id = ""
+
 if mode == "실시간 핫 키워드":
     main_cat = st.selectbox("📂 대분류 선택", list(category_map.keys()))
     sub_cat = st.selectbox("🔍 하위 카테고리 선택", list(category_map[main_cat].keys()))
     selected_category_id = category_map[main_cat][sub_cat]
+    search_name = sub_cat
 else:
     user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집")
+    search_name = "직접 입력"
 
 def generate_ai_titles(keyword):
     # 1. 여행/티켓/장소 관련 키워드용 (맛집, 코스 위주)
@@ -71,8 +77,7 @@ def generate_ai_titles(keyword):
             f"{keyword} 여행 가방 준비물 리스트 체크사항"
         ]
         return random.sample(travel_templates, 3)
-
-    # 2. 스킨케어/육아/식품/의류 등 일반 상품용 (정보성/리뷰 위주)
+    # 2. 스킨케어/육아/식품/의류 등 일반 상품용
     else:
         product_templates = [
             f"{keyword} 내돈내산 한 달 사용 후기 정리",
@@ -108,7 +113,7 @@ if st.button("🚀 심층 분석 시작"):
         "Content-Type": "application/json"
     }
     
-    final_keywords = [] # 변수 초기화
+    final_keywords = [] 
 
     with st.spinner('선택하신 카테고리에 딱 맞는 키워드를 분석 중입니다...'):
         # 1. 키워드 추출 로직
@@ -127,7 +132,6 @@ if st.button("🚀 심층 분석 시작"):
 
             if not final_keywords:
                 st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
-                # 카테고리별 접미사(suffixes) 결정
                 if any(x in search_name for x in ["여행", "티켓", "가볼만한곳"]):
                     suffixes = ["아이랑 가볼만한곳", "주차 정보", "입장료 할인", "근처 맛집 베스트", "포토존 위치", "현지인 추천 코스", "내돈내산 솔직후기"]
                 elif any(x in search_name for x in ["의류", "패션", "잡화"]):
@@ -141,7 +145,7 @@ if st.button("🚀 심층 분석 시작"):
                 
                 final_keywords = [f"{search_name} {s}" for s in suffixes]
         
-        else: # 직접 입력 모드 (여기가 에러 났던 부분입니다! 위 if와 줄을 똑같이 맞췄습니다.)
+        else: 
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
         # 2. 결과 분석 및 출력
@@ -150,14 +154,14 @@ if st.button("🚀 심층 분석 시작"):
             p_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # 1. 블로그 발행량 조회 (공급량)
+                # 1. 블로그 발행량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 0) if r_blog.status_code == 200 else 0
                 
-                # 2. 검색 트렌드 조회 (상대적 수요)
+                # 2. 검색 트렌드 조회
                 url_trend = "https://openapi.naver.com/v1/datalab/search"
                 yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                 last_month = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
@@ -171,55 +175,37 @@ if st.button("🚀 심층 분석 시작"):
                     res_data = res_trend.json().get('results', [{}])[0].get('data', [])
                     if res_data: s_ratio = res_data[0].get('ratio', 0)
 
-                # 3. 전략적 등급 산출 (발행량 기반 판정)
-                # 수만 건 이상의 발행량은 검색량이 많아도 현실적으로 상위 노출이 어렵다는 점을 반영
-                if b_cnt > 100000: # 10만 건 이상
-                    status = "🔴 레드오션"
-                    score = 1.5
-                elif b_cnt > 30000: # 3만 건 ~ 10만 건
-                    status = "🟠 중간"
-                    score = 4.5
-                elif b_cnt > 5000: # 5천 건 ~ 3만 건
-                    status = "🟢 양호"
-                    score = 7.5
-                else: # 5천 건 미만 (진짜 틈새)
+                # 3. 등급 산출
+                if b_cnt > 100000:
+                    status = "🔴 레드오션"; score = 1.5
+                elif b_cnt > 30000:
+                    status = "🟠 중간"; score = 4.5
+                elif b_cnt > 5000:
+                    status = "🟢 양호"; score = 7.5
+                else:
                     if s_ratio > 0:
-                        status = "🔵 블루오션"
-                        score = 9.5
+                        status = "🔵 블루오션"; score = 9.5
                     else:
-                        status = "🟢 양호" # 검색은 적지만 써볼만한 곳
-                        score = 6.5
+                        status = "🟢 양호"; score = 6.5
 
                 results_list.append({
-                    "시장성": status,
-                    "키워드": kw, 
-                    "발행량": f"{b_cnt:,}건", 
-                    "검색강도(상대)": f"{s_ratio:.1f}%",
-                    "지수": score,
+                    "시장성": status, "키워드": kw, "발행량": f"{b_cnt:,}건", 
+                    "검색강도(상대)": f"{s_ratio:.1f}%", "지수": score,
                     "AI 제목": " | ".join(generate_ai_titles(kw))
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 4. 결과 출력 및 시각화
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
-            
-            # 그래프: 등급별 컬러 매핑
             fig = px.bar(
                 df, x='키워드', y='지수', color='시장성',
-                color_discrete_map={
-                    "🔵 블루오션": "#0000FF", "🟢 양호": "#00FF00",
-                    "🟠 중간": "#FFA500", "🔴 레드오션": "#FF0000"
-                },
+                color_discrete_map={"🔵 블루오션": "#0000FF", "🟢 양호": "#00FF00", "🟠 중간": "#FFA500", "🔴 레드오션": "#FF0000"},
                 title="🔍 키워드별 시장성 분석 리포트"
             )
             st.plotly_chart(fig)
-            
             st.subheader("📑 실시간 블루오션 전략 리포트")
-            # 표에서도 동그라미가 보이게 출력
             st.dataframe(df.drop(columns=['지수']), use_container_width=True, hide_index=True)
             st.balloons()
-            
-            
+
 # 5. 본문 프롬프트 생성기
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
@@ -258,10 +244,3 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
-
-
-
-
-
-
