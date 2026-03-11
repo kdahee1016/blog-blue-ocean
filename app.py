@@ -6,18 +6,22 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import random
 import urllib.parse
+import math # 지수 계산을 위한 수학 함수 추가
 
 # 1. 페이지 설정
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
 st.title("🍀 오키랑의 키워드 분석")
 
-# 2. API 설정
-with st.expander("🔐 네이버 API 키 입력", expanded=True):
+# 2. API 설정 (secrets.toml 연동)
+default_id = st.secrets.get("naver_client_id", "")
+default_secret = st.secrets.get("naver_client_secret", "")
+
+with st.expander("🔐 네이버 API 키 설정", expanded=False):
     col1, col2 = st.columns(2)
     with col1:
-        c_id = st.text_input("Client ID", type="password")
+        c_id = st.text_input("Client ID", value=default_id, type="password")
     with col2:
-        c_secret = st.text_input("Client Secret", type="password")
+        c_secret = st.text_input("Client Secret", value=default_secret, type="password")
 
 st.markdown("---")
 
@@ -27,7 +31,7 @@ target_gender = st.sidebar.selectbox("성별", ["전체", "여성 (f)", "남성 
 gender_code = "" if target_gender == "전체" else target_gender.split("(")[1][0]
 target_ages = st.sidebar.multiselect("연령대", ["10", "20", "30", "40", "50", "60"], default=[])
 
-# 4. 분석 모드
+# 4. 분석 모드 (카테고리 맵)
 category_map = {
     "패션의류": {
         "여성의류": "50000000",
@@ -106,27 +110,15 @@ category_map = {
         "문화/예매권": "50000053",
         "렌탈서비스": "50000054",
         "생활편의": "50000055"
-    },
-    "면세점": {
-        "화장품": "50000056",
-        "패션잡화": "50000057",
-        "시계/쥬얼리": "50000058"
     }
 }
 
 mode = st.radio("모드 선택", ["직접 입력", "실시간 핫 키워드"])
 
 if mode == "실시간 핫 키워드":
-    # 대분류 선택
     main_category = st.selectbox("📂 대분류를 선택하세요", list(category_map.keys()))
-    
-    # 선택된 대분류에 맞는 하위 리스트 구성
     sub_category_list = list(category_map[main_category].keys())
-    
-    # 하위 카테고리 선택
     sub_category = st.selectbox("🔍 하위 카테고리를 선택하세요", sub_category_list)
-    
-    # 최종 선택된 코드 추출
     selected_category_id = category_map[main_category][sub_category]
     st.info(f"✅ 현재 선택: {main_category} > {sub_category} (코드: {selected_category_id})")
 else:
@@ -162,15 +154,13 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
         final_keywords = []
         
         if mode == "실시간 핫 키워드":
-            # 3일 전 데이터를 기준으로 실시간성 확보
             target_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
-
             body = {
                 "startDate": target_date,
                 "endDate": target_date,
                 "timeUnit": "date",
-                "category": str(selected_category_id) # API 전송용 문자열 변환
+                "category": str(selected_category_id)
             }
             if gender_code: body["gender"] = gender_code
             if target_ages: body["ages"] = target_ages
@@ -181,7 +171,7 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                 if "results" in data and data['results']:
                     final_keywords = [item['title'] for item in data['results'][0]['data'][:20]]
             else:
-                st.warning("⚠️ 실시간 수집 일시 오류. API 설정 혹은 카테고리를 확인해주세요.")
+                st.warning("⚠️ 실시간 수집 일시 오류. 직접 입력을 이용해주세요.")
         else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
@@ -209,10 +199,16 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                             now_ratio = n_data[0]['ratio'] if n_data else 0.01
                         except: pass
                     
-                    score = (now_ratio / blog_count) * 10000
+                    # --- 0~10점 지수 보정 로직 적용 ---
+                    raw_score = (now_ratio / blog_count) * 100000
+                    if raw_score > 0:
+                        final_score = min(10.0, math.log10(raw_score + 1) * 3)
+                    else:
+                        final_score = 0.0
+
                     results.append({
                         "키워드": kw,
-                        "블루오션지수": round(score, 4),
+                        "블루오션지수": round(final_score, 2),
                         "AI 제목 추천": generate_ai_titles(kw)[0], 
                         "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                     })
@@ -220,23 +216,37 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
             if results:
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
                 
-                st.markdown("### 💡 블루오션 지수 판독 가이드")
-                col_g1, col_g2, col_g3 = st.columns(3)
-                with col_g1: st.success("**💎 10 이상: 블루오션**\n\n무조건 쓰세요! 노출 확률 최상")
-                with col_g2: st.info("**✅ 5 ~ 10: 할만한 시장**\n\n제목만 잘 지어도 유입 쏠쏠함")
-                with col_g3: st.warning("**⚠️ 3 미만: 레드오션**\n\n경쟁 치열. 구체적 키워드 필요")
+                # --- 가이드 표 추가 ---
+                st.markdown("### 💡 블루오션 지수 판독 가이드 (0~10 기준)")
+                guide_data = {
+                    "점수": ["8.0 ~ 10.0", "5.0 ~ 7.9", "3.0 ~ 4.9", "0.0 ~ 2.9"],
+                    "등급": ["💎 다이아몬드", "✅ 골드", "⚠️ 실버", "❌ 레드"],
+                    "의미": ["초특급 블루오션! 무조건 쓰세요.", "할만한 시장. 유입 보장!", "평범한 경쟁. 서브 키워드 필수.", "전쟁터. 상위 노출이 어렵습니다."]
+                }
+                st.table(pd.DataFrame(guide_data))
                 
                 st.markdown("---")
                 
+                # --- 색상 변경 그래프 적용 ---
                 st.subheader("📈 키워드별 시장성 분석")
-                fig = px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', text='블루오션지수', color_continuous_scale='Portland')
+                fig = px.bar(
+                    df, 
+                    x='키워드', 
+                    y='블루오션지수', 
+                    color='블루오션지수', 
+                    text='블루오션지수', 
+                    range_y=[0, 10], 
+                    color_continuous_scale='RdYlBu_r', # 파랑(고) -> 초록 -> 노랑 -> 빨강(저)
+                    labels={'블루오션지수': '블루오션 점수'}
+                )
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                fig.update_coloraxes(showscale=True)
                 st.plotly_chart(fig, use_container_width=True)
 
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("네이버 검색")}, use_container_width=True)
 
-# 6. 본문 프롬프트 생성기
+# 6. 본문 프롬프트 생성기 (기존 이모티콘 및 내용 보존)
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
 
@@ -261,7 +271,7 @@ final_prompt = f""" - 본문에 [{m_key}] 메인 키워드를 4회 넣어주고,
  - 긴 문장이라도 한 줄에 공백포함 최대 60~70byte로 자연스럽게 끊어서 작성해줘. (블로그 모바일 화면으로 편하게 읽힐 수 있도록)
  - 본문 전체는 자연스러운 스토리텔링으로 한글 기준 약 3,500자로 맞춰줘.
  - 글 곳곳에 아래 이모티콘 중 5~6개 정도 활용해줘,
-!(•̀ᴗ•́)و ̑̑ / (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ / (୨୧ ❛ᴗ❛)✧ / (୨୧ •͈ᴗ•͈) / (•̆ꈊ•̆ ) / (ꈍᴗꈍ)♡ / - ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- / ٩(*•̀ᴗ•́*)و / ٩( ᐢ-ᐢ )و / ٩(๑❛ᴗ❛๑)۶♡ / ٩(◕ᗜ◕)و / ദ്ദി( ¯꒳¯ ) / ☆٩(｡•ω<｡)﻿و / :) / :D / >_< / +ㅂ+ 
+!(•̀ᴗ•́)و ̑̑ / (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ / (୨୧ ❛ᴗ❛)✧ / (୨୧ •͈ᴗ•͈) / (•̆ꈊ•̆ ) / (ꈍᴗꈍ)♡ / - ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- / ٩(*•̀ᴗ•́*)و / ٩( ᐢ-ᐢ )و / ٩(๑❛ᴗ❛๑)۶♡ / ٩(◕ᗜ◕)و / ദ്디( ¯꒳¯ ) / ☆٩(｡•ω<｡)﻿و / :) / :D / >_< / +ㅂ+ 
  - 글 곳곳에 어울리는 이모지도 6~10개 활용해 줘. 
  - AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토해주고,
  - 상위노출SEO 반영해서 내용 작성해줘.
@@ -286,6 +296,3 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
-
-
-
