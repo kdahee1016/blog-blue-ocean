@@ -221,7 +221,7 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                 guide_data = {
                     "점수": ["8.0 ~ 10.0", "5.0 ~ 7.9", "3.0 ~ 4.9", "0.0 ~ 2.9"],
                     "등급": ["💎 다이아몬드", "✅ 골드", "⚠️ 실버", "❌ 레드"],
-                    "의미": ["초특급 블루오션! 무조건 쓰세요.", "할만한 시장. 유입 보장!", "평범한 경쟁. 서브 키워드 필수.", "전쟁터. 상위 노출이 어렵습니다."]
+                    "의미": ["초특급 블루오션! 무조건 쓰세요.", "할만한 시장. 유입 보장!", "평범한 경쟁. 서브 키워드 필수.", "전쟁터. 상위 노출이 치열합니다."]
                 }
                 st.table(pd.DataFrame(guide_data))
                 
@@ -250,6 +250,7 @@ if st.button("🚀 심층 분석 및 AI 제목 생성"):
                 )
 
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                st.plotly_chart(fig, use_container_width=True, key="keyword_chart")
                 fig.update_coloraxes(showscale=True)
                 st.plotly_chart(fig, use_container_width=True)
                 fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
@@ -309,5 +310,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
