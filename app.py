@@ -125,26 +125,35 @@ if st.button("🚀 심층 분석 시작"):
                     final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
             except:
                 pass
-
-            if not final_keywords:
+if not final_keywords:
                 st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
+                
+                # 1. 여행 관련 (가장 먼저 체크)
                 if any(x in search_name for x in ["여행", "티켓", "가볼만한곳"]):
-                    # 단순 '추천'이 아닌, 실제 검색 수요가 높은 롱테일 키워드들
                     suffixes = [
                         "아이랑 가볼만한곳", "주차 정보", "입장료 할인", 
                         "근처 맛집 베스트", "포토존 위치", "방문 전 주의사항", 
                         "현지인 추천 코스", "무료 입장 꿀팁", "주말 웨이팅 후기", 
                         "숙소 근처 식당", "내돈내산 솔직후기", "실내 데이트 코스"
                     ]
-                    final_keywords = [f"{search_name} {s}" for s in suffixes]
-                elif "의류" in search_name or "패션" in search_name:
+                
+                # 2. 패션 관련
+                elif any(x in search_name for x in ["의류", "패션", "잡화"]):
                     suffixes = ["코디", "사이즈", "추천", "브랜드", "신상", "데일리룩", "후기", "하객룩", "가성비", "쇼핑몰"]
-                elif "식품" in search_name or "음식" in search_name:
+                
+                # 3. 식품 관련
+                elif any(x in search_name for x in ["식품", "음식", "맛집"]):
                     suffixes = ["밀키트", "대용량", "레시피", "칼로리", "맛있게 먹는 법", "추천", "후기", "유통기한", "보관법", "가성비"]
-                elif "육아" in search_name or "아동" in search_name:
+                
+                # 4. 육아 관련
+                elif any(x in search_name for x in ["육아", "아동", "유아"]):
                     suffixes = ["추천", "사이즈", "선물", "인기순위", "체험단", "내돈내산", "공구", "할인", "사용법", "신학기"]
+                
+                # 5. 그 외 기타 카테고리
                 else:
                     suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
+                
+                # [중요] 여기서 딱 한 번만 키워드 조합을 생성합니다.
                 final_keywords = [f"{search_name} {s}" for s in suffixes]
         
         else: # 직접 입력 모드 (여기가 에러 났던 부분입니다!)
@@ -265,6 +274,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
