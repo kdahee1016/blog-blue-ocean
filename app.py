@@ -28,7 +28,7 @@ target_gender = st.sidebar.selectbox("성별", ["전체", "여성 (f)", "남성 
 gender_code = "" if target_gender == "전체" else target_gender.split("(")[1][0]
 target_ages = st.sidebar.multiselect("연령대", ["10", "20", "30", "40", "50", "60"], default=[])
 
-# 4. 분석 모드 (카테고리 맵 전체 복구)
+# 4. 분석 모드 (모든 하위 카테고리 포함)
 category_map = {
     "패션의류": {"여성의류": "50000000", "여성언더웨어/잠옷": "50000167", "남성의류": "50000001", "남성언더웨어/잠옷": "50000168", "아동의류": "50000002"},
     "패션잡화": {"신발": "50000003", "가방": "50000004", "지갑": "50000005", "벨트": "50000006", "선글라스/안경테": "50000007", "헤어액세서리": "50000008"},
@@ -85,12 +85,18 @@ if st.button("🚀 심층 분석 시작"):
             progress_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # 블로그 개수 조회
-                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
+                # 블로그 개수 조회 (encoded 처리)
+                encoded_kw = urllib.parse.quote(kw)
+                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={encoded_kw}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
                 # 검색 비율 조회
-                s_body = {"startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), "timeUnit": "date", "keywordGroups": [{"groupName": kw, "keywords": [kw]}]}
+                s_body = {
+                    "startDate": (datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d'), 
+                    "endDate": (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'), 
+                    "timeUnit": "date", 
+                    "keywordGroups": [{"groupName": kw, "keywords": [kw]}]
+                }
                 res_now = requests.post("https://openapi.naver.com/v1/datalab/search", headers=headers, data=json.dumps(s_body))
                 
                 ratio = 0.0001
@@ -100,17 +106,20 @@ if st.button("🚀 심층 분석 시작"):
                         if n_data: ratio = n_data[-1]['ratio']
                     except: pass
                 
-                # 블루오션 지수 (0~10점 변별력 강화)
+                # 블루오션 지수 (순서에 상관없이 오직 수치로만 계산)
                 raw_score = (ratio / b_cnt) * 1000000
-                score = min(10.0, math.log10(raw_score + 1) * 2.5) if raw_score > 0 else 0.0
+                score = min(10.0, math.log10(raw_score + 1) * 2.5) if ratio > 0.0001 else 0.0
 
                 results.append({
-                    "키워드": kw, "블루오션지수": round(score, 2), "AI 제목 추천": generate_ai_titles(kw)[0],
+                    "키워드": kw, 
+                    "블루오션지수": round(score, 2), 
+                    "AI 제목 추천": generate_ai_titles(kw)[0],
                     "상세보기": f"https://search.naver.com/search.naver?query={kw}"
                 })
                 progress_bar.progress((idx + 1) / len(final_keywords))
 
             if results:
+                # 점수 기준으로 정렬하여 출력
                 df = pd.DataFrame(results).sort_values(by="블루오션지수", ascending=False)
 
                 st.markdown("### 💡 블루오션 지수 판독 가이드")
@@ -133,7 +142,7 @@ if st.button("🚀 심층 분석 시작"):
                 st.subheader("📑 AI 전략 리포트")
                 st.dataframe(df, column_config={"상세보기": st.column_config.LinkColumn("검색하기")}, use_container_width=True)
 
-# 6. 본문 프롬프트 생성기
+# 6. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
 st.subheader("📝 블로그 본문 작성 프롬프트 생성기")
 
