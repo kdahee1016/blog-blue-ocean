@@ -48,20 +48,18 @@ else:
     user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집")
 
 def generate_ai_titles(keyword):
-    patterns = [
-        f"이번 주말에 다녀온 {keyword}, 솔직히 말해서 '이거' 하나는 좀 별로였어요",
-        f"드디어 다녀온 {keyword}! 광고 말고 진짜 찐후기 궁금하신 분들을 위해 준비함",
-        f"아이랑 {keyword} 갈 때 '이 시간'에 가야 줄 안 서고 바로 들어갑니다 (꿀팁)",
-        f"엄마들이 자꾸 물어보는 {keyword} 정보, 이 포스팅 하나로 정리 끝낼게요",
-        f"실패 없는 {keyword} 방문을 위한 현실적인 조언 (주차, 동선, 명당자리)",
-        f"{keyword} 방문 예정이라면 꼭 알아야 할 '의외의' 준비물 3가지",
-        f"요즘 핫한 {keyword}, 소문만큼 정말 좋을까? 내돈내산 가감 없는 후기",
-        f"아이와 함께 {keyword} 200% 즐기는 법! (부모님 체력 아끼는 코스 추천)",
-        f"{keyword} 가기 전 필독! 모르면 손해보는 할인 정보와 입장 팁",
-        f"직접 가보고 느낀 {keyword} 명당 자리! 명당 잡으려면 몇 시까지 가야 할까?",
-        f"{keyword} 근처 맛집까지 싹 정리! 아이랑 가기 좋은 완벽한 하루 코스"
-    ]
-    return random.sample(patterns, 3)
+    if any(x in keyword for x in ["여행", "가볼만한곳", "코스", "티켓"]):
+        return [
+            f"{keyword} 아이랑 200% 즐기는 팁! (체력 아끼는 동선)",
+            f"{keyword} 근처 가볼만한 곳까지 싹 정리 (주말 나들이)",
+            f"주말에 다녀온 {keyword} 솔직 후기, '이것'만은 꼭 챙기세요"
+        ]
+    else:
+        return [
+            f"내돈내산 {keyword} 솔직 사용기! 장단점 완벽 비교",
+            f"요즘 핫한 {keyword} 실패 없이 고르는 법 (성분/가성비 분석)",
+            f"{keyword} 고민 중이라면 필독! 직접 써보고 느낀 점 정리"
+        ]
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
@@ -111,26 +109,38 @@ if st.button("🚀 심층 분석 시작"):
             final_keywords = [f"{search_name} {s}" for s in suffixes]
 
         # 2. 블로그 지수 분석 및 그래프 출력
-        if final_keywords:
+if final_keywords:
             results_list = []
             p_bar = st.progress(0)
+            
             for idx, kw in enumerate(final_keywords):
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
+                
+                # 지수가 높을수록(10점) 검색량이 적은 블루오션
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
-                    "키워드": kw, 
-                    "블루오션지수": score, 
-                    "AI 제목 추천": " | ".join(generate_ai_titles(kw))
+                    "키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
-            st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10], title=f"🔥 {search_name} 맞춤 분석 결과"))
+            
+            # [색상 반전] 0점(레드) = 빨강, 10점(블루) = 파랑
+            # 순서: 빨강(Red) -> 노랑(Yellow) -> 초록(Green) -> 파랑(Blue)
+            fig = px.bar(
+                df, x='키워드', y='블루오션지수',
+                color='블루오션지수',
+                color_continuous_scale=['#FF0000', '#FFFF00', '#00FF00', '#0000FF'], 
+                range_y=[0, 10],
+                title=f"🌊 {search_name} 블루오션 지수 (파란색일수록 경쟁이 적어요!)"
+            )
+            st.plotly_chart(fig)
+            
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True)
             st.balloons()
@@ -174,3 +184,4 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
