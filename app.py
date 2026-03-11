@@ -4,7 +4,6 @@ import json
 import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
-import random
 import urllib.parse
 import math
 
@@ -63,18 +62,13 @@ def generate_ai_titles(keyword):
 if st.button("🚀 심층 분석 시작"):
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
+    headers = {"X-Naver-Client-Id": clean_id, "X-Naver-Client-Secret": clean_secret, "Content-Type": "application/json"}
+    
+    final_keywords = [] # 주머니 준비!
 
-    headers = {
-        "X-Naver-Client-Id": clean_id,
-        "X-Naver-Client-Secret": clean_secret,
-        "Content-Type": "application/json"
-    }
-
-    final_keywords = []
-
-    with st.spinner('실시간 블로그 발행량을 정밀 조사 중입니다...'):
+    with st.spinner('정밀 분석 중...'):
         if mode == "실시간 핫 키워드":
-            search_name = sub_cat if sub_cat else "인기상품"
+            search_name = sub_cat
             url = "https://openapi.naver.com/v1/datalab/shopping/category/keyword/top100"
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             payload = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": str(selected_category_id)}
@@ -84,11 +78,10 @@ if st.button("🚀 심층 분석 시작"):
                 if res.status_code == 200:
                     raw_data = res.json().get('results', [{}])[0].get('data', [])
                     final_keywords = [item.get('group') for item in raw_data[:15] if item.get('group')]
-            except:
-                pass
+            except: pass
 
             if not final_keywords:
-                st.info(f"💡 {search_name} 순위 집계 중... 맞춤형 연관 분석으로 전환합니다.")
+                st.info(f"💡 {search_name} 연관 분석으로 전환합니다.")
                 if "여행" in search_name or "티켓" in search_name:
                     suffixes = ["가볼만한곳", "숙소 추천", "패키지", "가격", "예약", "명소", "당일치기", "1박2일", "코스", "꿀팁"]
                 elif "의류" in search_name or "패션" in search_name:
@@ -106,47 +99,28 @@ if st.button("🚀 심층 분석 시작"):
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
-            
             for idx, kw in enumerate(final_keywords):
-                r_blog = requests.get(
-                    f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
-                    headers=headers
-                )
-                # 데이터가 없으면 0이 아니라 최소 1로 잡아 로그 에러 방지
+                r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
                 
-                # [수정] 디테일한 블루오션 지수 계산식 (오늘 오전 논의 반영)
-                # 발행량이 많을수록 감점 폭을 키우고(1.1 -> 1.3), 기본 점수를 조정했습니다.
-                if b_cnt > 1:
-                    score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.35)), 2)
-                else:
-                    score = 9.99 # 발행량이 아예 없으면 최상위 점수
+                # 정밀 지수 계산 (로그 가중치 강화)
+                score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.35)), 2) if b_cnt > 1 else 9.99
                 
-                results_list.append({
-                    "키워드": kw, 
-                    "블로그 발행량": f"{b_cnt:,}건",
-                    "블루오션지수": score, 
-                    "AI 제목 추천": " | ".join(generate_ai_titles(kw))
-                })
+                # 등급 판정
+                if score >= 8.5: grade = "💎 다이아몬드"
+                elif score >= 7.0: grade = "🥇 골드"
+                elif score >= 4.0: grade = "🥈 실버"
+                else: grade = "🥉 브론즈"
+
+                results_list.append({"등급": grade, "키워드": kw, "발행량": f"{b_cnt:,}건", "지수": score, "AI 제목": " | ".join(generate_ai_titles(kw))})
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
-            
-            # [색상 수정] 레드(0점) -> 옐로우(5점) -> 블루(10점)
-            fig = px.bar(
-                df, x='키워드', y='블루오션지수',
-                color='블루오션지수',
-                # 컬러 스케일을 더 직관적인 3단계로 구성
-                color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
-                range_y=[0, 10],
-                title=f"🌊 {search_name} 정밀 분석 (파란색일수록 발행량이 적은 블루오션!)"
-            )
-            # 수치가 잘 보이게 텍스트 추가
+            df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
+            fig = px.bar(df, x='키워드', y='지수', color='지수', color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], range_y=[0, 10], title="🌊 블루오션 지수 분석")
             fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
-            
             st.subheader("📑 실시간 블루오션 전략 리포트")
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
             st.balloons()
 
 if final_keywords:
@@ -245,5 +219,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
