@@ -73,27 +73,20 @@ if st.button("🚀 심층 분석 시작"):
         "X-Naver-Client-Secret": clean_secret,
         "Content-Type": "application/json"
     }
+    final_keywords = []
 
-    with st.spinner('데이터 추출 방식 전면 개편 중...'):
+    with st.spinner('네이버 쇼핑 데이터를 분석 중입니다...'):
         if mode == "실시간 핫 키워드":
-            # 400 에러 방지: 네이버가 요구하는 '최소 1개 이상의 키워드 객체'를 강제로 주입
-            # sub_cat이 비어있을 경우를 대비해 카테고리명을 기본값으로 설정
+            # 가장 안정적인 1주일 전 데이터 하나를 타겟팅
+            target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
             search_name = sub_cat if sub_cat else "인기상품"
             
-            # 가장 데이터가 안정적인 1주일 전 날짜 하나만 타겟팅 (성공률 극대화)
-            target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-
             payload = {
                 "startDate": target_date,
                 "endDate": target_date,
                 "timeUnit": "date",
                 "category": str(selected_category_id),
-                "keyword": [
-                    {
-                        "name": search_name,
-                        "param": [search_name]
-                    }
-                ]
+                "keyword": [{"name": search_name, "param": [search_name]}]
             }
 
             res = requests.post(
@@ -104,34 +97,39 @@ if st.button("🚀 심층 분석 시작"):
 
             if res.status_code == 200:
                 data = res.json()
-                # 데이터 파싱 로직 (results -> data -> title 순서 고정)
                 try:
-                    raw_items = data['results'][0]['data']
-                    final_keywords = [item['title'] for item in raw_items[:15]]
+                    # 네이버 쇼핑인사이트 응답 구조에서 키워드 추출
+                    items = data['results'][0]['data']
+                    final_keywords = [item.get('group', item.get('keyword', item.get('title', ''))) for item in items[:15]]
+                    final_keywords = [k for k in final_keywords if k] # 빈값 제거
                     
-                    # 이후 블로그 검색량 조회 로직 실행...
-                    st.success(f"✅ {search_name} 관련 핫 키워드 추출 성공!")
-                    # (중략: 그래프 출력 로직)
-                except (KeyError, IndexError):
-                    st.error("⚠️ 네이버 응답 구조가 예상과 다릅니다. 데이터를 열어볼 수 없습니다.")
+                    if final_keywords:
+                        st.success(f"✅ {search_name} 관련 핫 키워드 {len(final_keywords)}개 추출 성공!")
+                    else:
+                        st.warning("⚠️ 키워드 알맹이가 비어있습니다. 다른 카테고리를 골라주세요.")
+                except:
+                    st.error("⚠️ 데이터 구조 분석에 실패했습니다.")
             else:
-                # 400 에러 시 네이버가 주는 진짜 이유를 화면에 출력
-                st.error(f"🚫 에러 발생: {res.status_code}")
-                st.info(f"상세 원인: {res.text}")
+                st.error(f"🚫 네이버 응답 에러: {res.status_code}")
 
-        # 결과 처리 (블로그 검색량 비교 및 리포트 출력)
+        else:
+            # 수동 입력 모드
+            final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
+
+        # --- 여기서부터가 화면에 그래프를 그리는 핵심 코드입니다 ---
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
-            st.info(f"🔎 {len(final_keywords)}개 키워드의 블루오션 지수를 정밀 분석합니다!")
             
             for idx, kw in enumerate(final_keywords):
-                # 블로그 검색량 조회 (이 부분이 그래프의 '검색' 사용량을 올립니다!)
+                # 블로그 검색량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
+                
+                # 블루오션 지수 계산
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
@@ -141,11 +139,18 @@ if st.button("🚀 심층 분석 시작"):
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 결과 리포트 출력
+            # 데이터프레임 생성 및 정렬
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
-            st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
+            
+            # 1. 막대 그래프 출력
+            st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', 
+                                   range_y=[0, 10], title="🔥 실시간 블루오션 지수"))
+            
+            # 2. 상세 리포트 표 출력
             st.subheader("📑 실시간 블루오션 전략 리포트")
             st.dataframe(df, use_container_width=True)
+            
+            st.balloons() # 축하 효과!
                 
 # 5. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
@@ -186,6 +191,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
