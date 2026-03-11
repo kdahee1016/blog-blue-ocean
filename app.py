@@ -11,18 +11,13 @@ import urllib.parse
 st.set_page_config(page_title="오키랑의 키워드 분석", layout="wide")
 st.title("🍀 오키랑의 키워드 분석")
 
-# 2. API 설정 (secrets.toml에서 자동으로 읽어오기)
-# 파일이 없거나 설정이 안 되어 있으면 빈 문자열("")을 가져옵니다.
-default_id = st.secrets.get("naver_client_id", "")
-default_secret = st.secrets.get("naver_client_secret", "")
-
-with st.expander("🔐 네이버 API 키 설정", expanded=False): # 평소엔 닫아두기
+# 2. API 설정
+with st.expander("🔐 네이버 API 키 입력", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        # value=default_id 이 부분이 핵심입니다!
-        c_id = st.text_input("Client ID", value=default_id, type="password")
+        c_id = st.text_input("Client ID", type="password")
     with col2:
-        c_secret = st.text_input("Client Secret", value=default_secret, type="password")
+        c_secret = st.text_input("Client Secret", type="password")
 
 st.markdown("---")
 
@@ -291,5 +286,6 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
