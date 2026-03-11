@@ -101,50 +101,59 @@ if st.button("🚀 심층 분석 시작"):
                     
                     if res.status_code == 200:
                         data = res.json()
-                        # [핵심] 네이버 보따리(JSON)를 샅샅이 뒤져서 키워드 리스트를 만듭니다.
+                        # [핵심] 네이버 JSON 구조 정밀 분석 및 키워드 추출
                         if 'results' in data and len(data['results']) > 0:
-                            # results[0]['data'] 안에 우리가 찾는 'title'이 들어있습니다.
                             raw_data = data['results'][0].get('data', [])
-                           if raw_data:
-                            # 네이버 API 응답에서 키워드 이름표는 'group'인 경우가 많습니다.
-                            # 아래 코드는 'group', 'keyword', 'title' 중 하나라도 있으면 낚아챕니다.
-                            final_keywords = [
-                                item.get('group', item.get('keyword', item.get('title', ''))) 
-                                for item in raw_data[:15]
-                            ]
-                            
-                            # 혹시 모를 빈 값이나 중복 제거
-                            final_keywords = [k for k in final_keywords if k]
-                            
-                            if final_keywords:
-                                success = True
-                                st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 발견했습니다!")
-                                break
+                            if raw_data:
+                                # group, keyword, title 중 존재하는 이름표를 낚아챕니다.
+                                final_keywords = [
+                                    item.get('group', item.get('keyword', item.get('title', ''))) 
+                                    for item in raw_data[:15]
+                                ]
+                                
+                                # 빈 값 제거 및 리스트 정제
+                                final_keywords = [k for k in final_keywords if k]
+                                
+                                if final_keywords:
+                                    success = True
+                                    st.success(f"✅ {target_date}의 핫 키워드 {len(final_keywords)}개를 발견했습니다!")
+                                    break
                     else:
                         st.write(f"🔍 {target_date} 시도 중... (응답: {res.status_code})")
 
                 if not success:
                     st.error("⚠️ 네이버에서 데이터를 가져오지 못했습니다. 카테고리를 '식품'이나 '육아'로 바꿔서 한 번만 더 눌러보세요!")
             else:
-                # 이건 원래 잘 되던 수동 입력 기능!
+                # 수동 입력 기능
                 final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-            # 결과 처리 (블로그 검색량 비교 및 리포트)
-            if final_keywords:
-                # ... (이후 블로그 검색량 조회 및 그래프 출력 로직 동일)
-                results_list = []
-                p_bar = st.progress(0)
-                for idx, kw in enumerate(final_keywords):
-                    r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
-                    b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                    score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
-                    results_list.append({"키워드": kw, "블루오션지수": score, "AI 제목 추천": " | ".join(generate_ai_titles(kw))})
-                    p_bar.progress((idx + 1) / len(final_keywords))
+        # 결과 처리 (블로그 검색량 비교 및 리포트 출력)
+        if final_keywords:
+            results_list = []
+            p_bar = st.progress(0)
+            for idx, kw in enumerate(final_keywords):
+                # 블로그 검색 결과 총 개수 조회
+                r_blog = requests.get(
+                    f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
+                    headers=headers
+                )
+                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
+                
+                # 블루오션 지수 계산 (로그 스케일 적용)
+                score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
+                
+                results_list.append({
+                    "키워드": kw, 
+                    "블루오션지수": score, 
+                    "AI 제목 추천": " | ".join(generate_ai_titles(kw))
+                })
+                p_bar.progress((idx + 1) / len(final_keywords))
 
-                df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
-                st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
-                st.subheader("📑 실시간 블루오션 전략 리포트")
-                st.dataframe(df, use_container_width=True)
+            # 결과 리포트 출력
+            df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
+            st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
+            st.subheader("📑 실시간 블루오션 전략 리포트")
+            st.dataframe(df, use_container_width=True)
                 
 # 5. 본문 프롬프트 생성기 (이종호님의 이모티콘 프롬프트)
 st.markdown("---")
@@ -185,6 +194,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
