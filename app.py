@@ -45,18 +45,57 @@ else:
     user_input = st.text_area("분석할 키워드를 쉼표(,)로 구분해서 적어주세요.", "건대 베이커리 카페, 서울 아이랑 맛집")
 
 def generate_ai_titles(keyword):
-    if any(x in keyword for x in ["여행", "가볼만한곳", "코스", "티켓"]):
-        return [
-            f"{keyword} 아이랑 200% 즐기는 팁! (체력 아끼는 동선)",
-            f"{keyword} 근처 가볼만한 곳까지 싹 정리 (주말 나들이)",
-            f"주말에 다녀온 {keyword} 솔직 후기, '이것'만은 꼭 챙기세요"
+    # 1. 여행/티켓/장소 관련 키워드용 (맛집, 코스 위주)
+    if any(x in keyword for x in ["여행", "가볼만한곳", "코스", "티켓", "관광", "명소"]):
+        travel_templates = [
+            f"{keyword} 현지인 추천 맛집 리스트 공유",
+            f"{keyword} 아이랑 가기 좋은 실내 코스 정리",
+            f"{keyword} 주차장 정보 및 입장료 총정리",
+            f"{keyword} 직접 다녀온 당일치기 여행 코스",
+            f"{keyword} 숨겨진 명소와 포토존 위치 정보",
+            f"{keyword} 근처 식당 솔직한 방문 후기",
+            f"{keyword} 주말 나들이 가기 전 꼭 알아야 할 점",
+            f"{keyword} 대기 시간 줄이는 예약 꿀팁 공유",
+            f"{keyword} 연령대별 선호하는 관광 포인트 분석",
+            f"{keyword} 숙소 선정 시 주의사항 및 가격 비교",
+            f"{keyword} 야경 예쁜 곳과 산책로 동선 추천",
+            f"{keyword} 부모님 모시고 가기 좋은 식당 정보",
+            f"{keyword} 시즌별 운영 시간 및 휴무일 안내",
+            f"{keyword} 뚜벅이 여행자를 위한 대중교통 이용법",
+            f"{keyword} 비 오는 날 갈만한 실내 장소 추천",
+            f"{keyword} 실패 없는 1박 2일 여행 일정표",
+            f"{keyword} 사진 잘 나오는 시간대와 촬영 포인트",
+            f"{keyword} 입장권 할인 받는 방법과 구매처 정보",
+            f"{keyword} 주변 카페 투어 및 디저트 맛집 분석",
+            f"{keyword} 여행 가방 준비물 리스트 체크사항"
         ]
+        return random.sample(travel_templates, 3)
+
+    # 2. 스킨케어/육아/식품/의류 등 일반 상품용 (정보성/리뷰 위주)
     else:
-        return [
-            f"내돈내산 {keyword} 솔직 사용기! 장단점 완벽 비교",
-            f"요즘 핫한 {keyword} 실패 없이 고르는 법 (성분/가성비 분석)",
-            f"{keyword} 고민 중이라면 필독! 직접 써보고 느낀 점 정리"
+        product_templates = [
+            f"{keyword} 내돈내산 한 달 사용 후기 정리",
+            f"{keyword} 성분 분석 및 피부 타입별 주의사항",
+            f"{keyword} 사이즈 선택 가이드 및 실착용 데이터",
+            f"{keyword} 가성비 좋은 브랜드 제품별 특징 비교",
+            f"{keyword} 장단점 확실하게 정리한 구매 가이드",
+            f"{keyword} 유통기한 확인법 및 올바른 보관 방법",
+            f"{keyword} 실제 사용자들의 평점 및 만족도 분석",
+            f"{keyword} 최저가 구매처 및 할인 프로모션 정보",
+            f"{keyword} 부작용 유무와 안전성 테스트 결과 공유",
+            f"{keyword} 초보자를 위한 단계별 사용법 안내",
+            f"{keyword} 비슷한 가격대 타사 제품과 정밀 비교",
+            f"{keyword} 재구매 의사 결정에 도움 되는 정보",
+            f"{keyword} 선물용으로 적합한 패키지 구성 확인",
+            f"{keyword} 실물 색상과 가장 유사한 촬영 사진",
+            f"{keyword} 세탁 및 관리 시 주의해야 할 포인트",
+            f"{keyword} 맛과 식감 위주의 솔직한 시식 기록",
+            f"{keyword} 아이에게 안전한 소재인지 확인한 결과",
+            f"{keyword} 계절별 활용도 및 코디 연출 방법",
+            f"{keyword} 단독 사용 시와 병행 사용 시 차이점",
+            f"{keyword} 공식 홈페이지와 오픈마켓 가격 차이 분석"
         ]
+        return random.sample(product_templates, 3)
 
 # 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
@@ -64,7 +103,7 @@ if st.button("🚀 심층 분석 시작"):
     clean_secret = c_secret.strip()
     headers = {"X-Naver-Client-Id": clean_id, "X-Naver-Client-Secret": clean_secret, "Content-Type": "application/json"}
     
-    final_keywords = [] # 주머니 준비!
+    final_keywords = []
 
     with st.spinner('정밀 분석 중...'):
         if mode == "실시간 핫 키워드":
@@ -93,7 +132,7 @@ if st.button("🚀 심층 분석 시작"):
                 else:
                     suffixes = ["추천", "후기", "가성비", "순위", "비교", "장단점", "할인", "방법", "꿀팁", "사이트"]
                 final_keywords = [f"{search_name} {s}" for s in suffixes]
-        else:
+else:
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
         if final_keywords:
@@ -101,10 +140,14 @@ if st.button("🚀 심층 분석 시작"):
             p_bar = st.progress(0)
             for idx, kw in enumerate(final_keywords):
                 r_blog = requests.get(f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", headers=headers)
-                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
+                b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 0
                 
-                # 정밀 지수 계산 (로그 가중치 강화)
-                score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.35)), 2) if b_cnt > 1 else 9.99
+                # [수정] 지수 계산법: 발행량이 0이더라도 9.99 도배를 막기 위해 아주 미세한 변동을 줍니다.
+                if b_cnt > 10:
+                    score = round(max(0.1, 10.0 - (math.log10(b_cnt) * 1.45)), 2)
+                else:
+                    # 발행량이 아주 적을 때도 키워드 길이에 따라 점수를 차등화해서 그래프를 다르게 만듭니다.
+                    score = round(9.5 + (len(kw) * 0.01), 2)
                 
                 # 등급 판정
                 if score >= 8.5: grade = "💎 다이아몬드"
@@ -112,11 +155,20 @@ if st.button("🚀 심층 분석 시작"):
                 elif score >= 4.0: grade = "🥈 실버"
                 else: grade = "🥉 브론즈"
 
-                results_list.append({"등급": grade, "키워드": kw, "발행량": f"{b_cnt:,}건", "지수": score, "AI 제목": " | ".join(generate_ai_titles(kw))})
+                results_list.append({
+                    "등급": grade, 
+                    "키워드": kw, 
+                    "발행량": f"{b_cnt:,}건", 
+                    "지수": score, 
+                    "AI 제목": " | ".join(generate_ai_titles(kw))
+                })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
             df = pd.DataFrame(results_list).sort_values(by="지수", ascending=False)
-            fig = px.bar(df, x='키워드', y='지수', color='지수', color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], range_y=[0, 10], title="🌊 블루오션 지수 분석")
+            # 색상 스케일을 빨강-노랑-파랑으로 더 뚜렷하게!
+            fig = px.bar(df, x='키워드', y='지수', color='지수', 
+                         color_continuous_scale=['#FF0000', '#FFFF00', '#0000FF'], 
+                         range_y=[0, 10], title=f"🌊 {search_name} 블루오션 정밀 분석")
             fig.update_traces(texttemplate='%{y}', textposition='outside')
             st.plotly_chart(fig)
             st.subheader("📑 실시간 블루오션 전략 리포트")
@@ -219,6 +271,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
