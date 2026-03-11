@@ -64,6 +64,15 @@ def generate_ai_titles(keyword):
     return random.sample(patterns, 3)
 
 # 4. 분석 실행
+이종호님, **"가성비, 추천"**만 계속 나오는 건 제가 만든 '안전장치'가 눈치 없이 자꾸 끼어들어서 그렇습니다. 네이버가 빈 보따리를 줄 때 제가 임의로 단어를 만들어내게 한 로직이 오히려 방해가 되고 있네요. 🐯💦
+
+이제 그 임의 생성 로직을 완전히 제거하고, 네이버가 보따리를 안 주면 왜 안 주는지 그 이유(에러 메시지)를 생중계하는 방식으로 코드를 아주 단순하게 깎아내겠습니다.
+
+지금 if st.button("🚀 심층 분석 시작"): 부분부터 아래 코드로 통째로 덮어쓰기 해주세요. 이번에는 가짜 키워드가 나올 구멍을 아예 막아버렸습니다.
+
+🛠️ [가짜 키워드 박멸] 진짜 데이터 수사관 코드
+Python
+# 4. 분석 실행
 if st.button("🚀 심층 분석 시작"):
     clean_id = c_id.strip()
     clean_secret = c_secret.strip()
@@ -80,7 +89,7 @@ if st.button("🚀 심층 분석 시작"):
         if mode == "실시간 핫 키워드":
             # 데이터 집계가 확실한 7일 전으로 설정
             target_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-            # 검색어가 비어있으면 안 되므로 카테고리명을 기본 키워드로 주입
+            # keyword 파라미터는 카테고리명을 넣어 네이버가 데이터를 주게 유도합니다.
             search_name = sub_cat if sub_cat else "인기상품"
             
             payload = {
@@ -88,7 +97,7 @@ if st.button("🚀 심층 분석 시작"):
                 "endDate": target_date,
                 "timeUnit": "date",
                 "category": str(selected_category_id),
-                "keyword": [{"name": search_name, "param": [search_name]}] # 필수!
+                "keyword": [{"name": search_name, "param": [search_name]}]
             }
 
             res = requests.post(
@@ -100,44 +109,37 @@ if st.button("🚀 심층 분석 시작"):
             if res.status_code == 200:
                 data = res.json()
                 try:
-                    # 네이버 쇼핑 인사이트의 표준 데이터 경로는 results[0]['data'] 입니다.
+                    # 네이버 쇼핑 인사이트의 핵심 경로: results -> data -> title
                     results = data.get('results', [])
                     if results:
                         raw_items = results[0].get('data', [])
-                        # 데이터가 존재할 경우 키워드(title) 추출
-                        final_keywords = [
-                            item.get('title') or item.get('name') or item.get('group')
-                            for item in raw_items[:20]
-                        ]
-                        final_keywords = [k for k in final_keywords if k]
-                except:
-                    pass
-
-            # [핵심] 네이버가 정말로 데이터를 안 줄 때만 안전장치 가동
-            if not final_keywords:
-                st.warning(f"⚠️ 네이버 {search_name} 데이터가 비어있어, 연관 키워드로 자동 전환합니다.")
-                final_keywords = [search_name, f"{search_name} 추천", f"가성비 {search_name}"]
+                        # [중요] '가성비' 같은 가짜 키워드 생성 로직을 삭제했습니다.
+                        # 오직 네이버가 준 데이터(title)만 담습니다.
+                        final_keywords = [item.get('title') for item in raw_items[:20] if item.get('title')]
+                    
+                    if not final_keywords:
+                        st.warning("⚠️ 네이버에서 데이터를 성공적으로 받았으나, 인기 키워드 리스트가 비어있습니다. 다른 카테고리를 선택해 보세요.")
+                except Exception as e:
+                    st.error(f"⚠️ 파싱 오류: {e}")
             else:
-                st.success(f"✅ {search_name} 카테고리에서 진짜 핫 키워드 {len(final_keywords)}개를 찾았습니다!")
+                # 400 에러 등이 날 경우 네이버가 보내는 진짜 이유를 그대로 노출
+                st.error(f"🚫 네이버 API 에러: {res.status_code}")
+                st.info(f"상세 원인: {res.text}")
 
         else:
-            # 수동 입력 모드
             final_keywords = [k.strip() for k in user_input.split(",") if k.strip()]
 
-        # --- 그래프 출력 로직 (키워드가 있을 때 실행) ---
+        # --- 결과 처리 및 그래프 (진짜 키워드가 있을 때만 실행) ---
         if final_keywords:
             results_list = []
             p_bar = st.progress(0)
             
             for idx, kw in enumerate(final_keywords):
-                # 블로그 검색량 조회
                 r_blog = requests.get(
                     f"https://openapi.naver.com/v1/search/blog?query={urllib.parse.quote(kw)}&display=1", 
                     headers=headers
                 )
                 b_cnt = r_blog.json().get('total', 1) if r_blog.status_code == 200 else 1
-                
-                # 블루오션 지수 계산 (수식 유지)
                 score = round(max(0.0, 10.0 - (math.log10(b_cnt) * 1.1 if b_cnt > 0 else 0)), 2)
                 
                 results_list.append({
@@ -147,7 +149,6 @@ if st.button("🚀 심층 분석 시작"):
                 })
                 p_bar.progress((idx + 1) / len(final_keywords))
 
-            # 결과 리포트 출력
             df = pd.DataFrame(results_list).sort_values(by="블루오션지수", ascending=False)
             st.plotly_chart(px.bar(df, x='키워드', y='블루오션지수', color='블루오션지수', range_y=[0, 10]))
             st.subheader("📑 실시간 블루오션 전략 리포트")
@@ -193,6 +194,7 @@ if st.button("📋 본문작성 프롬프트 생성"):
     else:
         st.text_area("아래 내용을 복사해서 사용하세요!", value=final_prompt, height=300)
         st.success("✅ 프롬프트가 생성되었습니다!")
+
 
 
 
