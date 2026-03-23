@@ -1,32 +1,23 @@
 import streamlit as st
 import google.generativeai as genai
-import time
 
 # 페이지 설정
-st.set_page_config(page_title="오키랑의 블로그 초안 생성기", layout="centered")
-
-# CSS로 모바일 가독성 스타일 살짝 추가
-st.markdown("""
-    <style>
-    .reportview-container .main .block-container { max-width: 800px; }
-    .stButton>button { width: 100%; border-radius: 20px; }
-    </style>
-    """, unsafe_allow_html=True)
+st.set_page_config(page_title="오키랑의 블로그 초안 메이커", layout="centered")
 
 st.title("📝 오키랑의 블로그 초안 메이커")
-st.caption("키워드만 넣으면 SEO에 최적화된 일기체 원고를 작성해 드려요!")
+st.caption("직접 겪은 에피소드를 적어주시면 30대 감성으로 맛있게 버무려 드려요! ✨")
 
 # 사이드바: 설정
 with st.sidebar:
     st.header("⚙️ 설정")
     api_key = st.text_input("Gemini API Key를 입력하세요", type="password")
-    st.info("API 키는 Google AI Studio에서 무료로 발급 가능합니다.")
+    st.info("API 키가 작동하지 않으면 새로 발급받아 1분 뒤 시도하세요.")
 
 # 메인 화면: 입력 폼
 with st.container():
     col1, col2 = st.columns(2)
     with col1:
-        main_k = st.text_input("📍 메인 키워드 (4회 반복)", placeholder="예: 파스타맛집")
+        main_k = st.text_input("📍 메인 키워드 (4회 반복)", placeholder="예: 광양 닭구이 맛집")
     with col2:
         sub_k1 = st.text_input("🔍 서브 키워드 1", placeholder="예: 아이랑 가기 좋은")
         
@@ -36,8 +27,16 @@ with st.container():
     with col4:
         sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 내돈내산 후기")
 
+    # ⭐ 새로 추가된 경험 입력란
+    st.subheader("📸 나의 실제 경험 (흐름 적기)")
+    user_experience = st.text_area(
+        "블로그에 꼭 넣고 싶은 내용이나 흐름을 자유롭게 적어주세요.",
+        placeholder="예: 우리 아들이 닭구이를 평소 안 먹는데 여기서 3인분 먹음 / 주차장이 넓어서 편했음 / 사장님이 직접 구워주셔서 감동 등",
+        height=200
+    )
+
 # 실행 버튼
-if st.button("✨ 블로그 초안 생성하기"):
+if st.button("✨ 내 경험 반영해서 원고 만들기"):
     if not api_key:
         st.error("API 키를 입력해주세요!")
     elif not main_k:
@@ -45,29 +44,16 @@ if st.button("✨ 블로그 초안 생성하기"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model_names = [
-                'models/gemini-2.0-flash', 
-                'models/gemini-1.5-flash-latest', 
-                'models/gemini-flash-latest'
-            ]
+            # 아까 성공했던 모델명으로 고정 (또는 목록 중 하나 선택)
+            model = genai.GenerativeModel('models/gemini-1.5-flash')
             
-            model = None
-            for name in model_names:
-                try:
-                    model = genai.GenerativeModel(name)
-                    # 테스트 호출로 모델이 정말 사용 가능한지 확인
-                    model.generate_content("test") 
-                    st.success(f"✅ 연결 성공: {name}")
-                    break
-                except Exception:
-                    continue
-            
-            if model is None:
-                st.error("❌ 사용 가능한 모델을 찾을 수 없습니다. API 키 설정을 확인해주세요.")
-            
-            with st.spinner("30대 감성을 한 방울 섞어 글을 짓는 중입니다..."):
+            with st.spinner("작성해주신 경험담을 토대로 글을 짓는 중입니다..."):
                 prompt = f"""
                 주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})
+                
+                [블로거의 실제 경험 내용]
+                {user_experience}
+
                 네이버 블로그 원고를 작성해줘. 아래 조건을 엄격히 지켜줘:
 
                 1. 키워드: '{main_k}' 4회, '{sub_k1}', '{sub_k2}', '{sub_k3}' 각 1회 자연스럽게 포함.
@@ -85,17 +71,16 @@ if st.button("✨ 블로그 초안 생성하기"):
                 response = model.generate_content(prompt)
                 full_text = response.text
                 
-                st.success("🎉 원고 작성이 완료되었습니다!")
+                st.success("🎉 나만의 원고 작성이 완료되었습니다!")
                 st.divider()
                 
-                # 결과 출력 및 복사 기능
                 st.subheader("📋 생성된 블로그 원고")
-                st.text_area("결과물 (드래그해서 복사하세요)", value=full_text, height=600)
+                st.text_area("결과물", value=full_text, height=600)
                 
                 st.download_button(
                     label="💾 텍스트 파일로 다운로드",
                     data=full_text,
-                    file_name=f"{main_k}_블로그초안.txt",
+                    file_name=f"{main_k}_경험담원고.txt",
                     mime="text/plain"
                 )
                 
