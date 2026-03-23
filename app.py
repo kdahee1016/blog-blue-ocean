@@ -2,10 +2,6 @@ import streamlit as st
 import google.generativeai as genai
 import time
 
-for m in genai.list_models():
-    if 'generateContent' in m.supported_generation_methods:
-        st.write(f"사용 가능 모델: {m.name}")
-
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 초안 생성기", layout="centered")
 
@@ -49,7 +45,7 @@ if st.button("✨ 블로그 초안 생성하기"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
+            model = genai.GenerativeModel('models/gemini-2.0-flash')
             
             with st.spinner("30대 감성을 한 방울 섞어 글을 짓는 중입니다..."):
                 prompt = f"""
