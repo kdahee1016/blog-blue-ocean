@@ -40,12 +40,31 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
     if not api_key:
         st.error("API 키를 입력해주세요!")
     elif not main_k:
-        st.warning("메인 키워드는 필수입니다.")
+st.warning("메인 키워드는 필수입니다.")
     else:
         try:
             genai.configure(api_key=api_key)
-            # 아까 성공했던 모델명으로 고정 (또는 목록 중 하나 선택)
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
+            
+            # --- [핵심!] 사용 가능한 모델을 자동으로 찾는 로직 ---
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            # 우선순위에 따라 모델 선택 (2.0-flash -> 1.5-flash -> 기타 순서)
+            target_model = None
+            for m_name in ["models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-flash-latest"]:
+                if m_name in available_models:
+                    target_model = m_name
+                    break
+            
+            # 만약 위 목록에 없으면 리스트의 첫 번째 모델 사용
+            if not target_model and available_models:
+                target_model = available_models[0]
+            
+            if not target_model:
+                st.error("사용 가능한 모델을 찾을 수 없습니다.")
+                st.stop()
+                
+            model = genai.GenerativeModel(target_model)
+            # --------------------------------------------------
             
             with st.spinner("작성해주신 경험담을 토대로 글을 짓는 중입니다..."):
                 prompt = f"""
