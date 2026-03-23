@@ -45,7 +45,25 @@ if st.button("✨ 블로그 초안 생성하기"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
+            model_names = [
+                'models/gemini-2.0-flash', 
+                'models/gemini-1.5-flash-latest', 
+                'models/gemini-flash-latest'
+            ]
+            
+            model = None
+            for name in model_names:
+                try:
+                    model = genai.GenerativeModel(name)
+                    # 테스트 호출로 모델이 정말 사용 가능한지 확인
+                    model.generate_content("test") 
+                    st.success(f"✅ 연결 성공: {name}")
+                    break
+                except Exception:
+                    continue
+            
+            if model is None:
+                st.error("❌ 사용 가능한 모델을 찾을 수 없습니다. API 키 설정을 확인해주세요.")
             
             with st.spinner("30대 감성을 한 방울 섞어 글을 짓는 중입니다..."):
                 prompt = f"""
