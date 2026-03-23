@@ -4,7 +4,7 @@ import google.generativeai as genai
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 초안 메이커", layout="centered")
 
-st.title("📝 오키랑의 블로그 초안 메이커")
+st.title("📝 내 경험이 담긴 블로그 초안 생성기")
 st.caption("직접 겪은 에피소드를 적어주시면 30대 감성으로 맛있게 버무려 드려요! ✨")
 
 # 사이드바: 설정
@@ -27,11 +27,10 @@ with st.container():
     with col4:
         sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 내돈내산 후기")
 
-    # ⭐ 새로 추가된 경험 입력란
     st.subheader("📸 나의 실제 경험 (흐름 적기)")
     user_experience = st.text_area(
         "블로그에 꼭 넣고 싶은 내용이나 흐름을 자유롭게 적어주세요.",
-        placeholder="예: 우리 아들이 닭구이를 평소 안 먹는데 여기서 3인분 먹음 / 주차장이 넓어서 편했음 / 사장님이 직접 구워주셔서 감동 등",
+        placeholder="예: 우리 아들이 닭구이를 평소 안 먹는데 여기서 3인분 먹음 / 주차장이 넓어서 편했음 등",
         height=200
     )
 
@@ -45,27 +44,34 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
         try:
             genai.configure(api_key=api_key)
             
-            # --- [핵심!] 사용 가능한 모델을 자동으로 찾는 로직 ---
+            # --- [개선] 사용 가능한 모델 리스트 확보 ---
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             
-            # 할당량이 넉넉한 1.5-flash를 1순위로, 최신 2.0을 2순위로 배치
+            # 429 에러(할당량 0)를 피하기 위해 1.5-flash를 1순위로 시도
             priority_list = [
                 "models/gemini-1.5-flash", 
                 "models/gemini-flash-latest", 
                 "models/gemini-2.0-flash"
             ]
             
-            target_model = None
+            target_model_name = None
             for m_name in priority_list:
                 if m_name in available_models:
-                    target_model = m_name
+                    target_model_name = m_name
                     break
             
-            if not target_model and available_models:
-                target_model = available_models[0]
-            # --------------------------------------------------
+            if not target_model_name and available_models:
+                target_model_name = available_models[0]
             
-            with st.spinner("작성해주신 경험담을 토대로 글을 짓는 중입니다..."):
+            if not target_model_name:
+                st.error("사용 가능한 모델을 찾을 수 없습니다.")
+                st.stop()
+            
+            # 여기서 model 변수를 확실하게 정의합니다!
+            model = genai.GenerativeModel(target_model_name)
+            # ------------------------------------------
+
+            with st.spinner(f"[{target_model_name}] 모델로 글을 짓는 중입니다..."):
                 prompt = f"""
                 주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})
                 
@@ -103,4 +109,7 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
                 )
                 
         except Exception as e:
-            st.error(f"오류가 발생했습니다: {e}")
+            # 에러 발생 시 상세 내용을 찍어줍니다.
+            st.error(f"오류가 발생했습니다: {str(e)}")
+            if "quota" in str(e).lower():
+                st.warning("⚠️ 할당량 부족 에러입니다. 1분 뒤 다시 시도하거나, 1.5-flash 모델이 활성화될 때까지 기다려주세요.")
