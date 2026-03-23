@@ -2,6 +2,10 @@ import streamlit as st
 import google.generativeai as genai
 import time
 
+for m in genai.list_models():
+    if 'generateContent' in m.supported_generation_methods:
+        st.write(f"사용 가능 모델: {m.name}")
+
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 초안 생성기", layout="centered")
 
