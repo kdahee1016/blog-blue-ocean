@@ -45,7 +45,7 @@ if st.button("✨ 블로그 초안 생성하기"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+            model = genai.GenerativeModel('models/gemini-1.5-flash')
             
             with st.spinner("30대 감성을 한 방울 섞어 글을 짓는 중입니다..."):
                 prompt = f"""
