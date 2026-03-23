@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-from st_copy_to_clipboard import st_copy_to_clipboard
 
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 초안 메이커", layout="centered")
