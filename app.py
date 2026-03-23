@@ -1,5 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
+from st_copy_to_clipboard import st_copy_to_clipboard
 
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 초안 메이커", layout="centered")
@@ -97,19 +98,46 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
                 
                 st.success("🎉 나만의 원고 작성이 완료되었습니다!")
                 st.divider()
-                
+
+                # --- [수정] 복사하기 버튼 추가 영역 ---
                 st.subheader("📋 생성된 블로그 원고")
-                st.text_area("결과물", value=full_text, height=600)
+                
+                # 1. 텍스트 표시
+                st.text_area("원고 내용", value=full_text, height=500, key="result_text")
+                
+                # 2. 복사하기 버튼 (HTML/JS 사용)
+                # 이 방식은 추가 라이브러리 설치 없이도 잘 작동합니다.
+                st.components.v1.html(f"""
+                    <button onclick="copyToClipboard()" style="
+                        width: 100%;
+                        height: 40px;
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">📋 원고 전체 복사하기</button>
+                    
+                    <script>
+                    function copyToClipboard() {{
+                        const text = `{full_text.replace('`', '\\`').replace('$', '\\$')}`;
+                        navigator.clipboard.writeText(text).then(function() {{
+                            alert('원고가 클립보드에 복사되었습니다! 네이버 블로그에 붙여넣으세요.');
+                        }}, function(err) {{
+                            console.error('복사 실패:', err);
+                        }});
+                    }}
+                    </script>
+                """, height=60)
+                # ------------------------------------
                 
                 st.download_button(
-                    label="💾 텍스트 파일로 다운로드",
+                    label="💾 텍스트 파일로 저장",
                     data=full_text,
-                    file_name=f"{main_k}_경험담원고.txt",
+                    file_name=f"{main_k}_원고.txt",
                     mime="text/plain"
                 )
                 
         except Exception as e:
-            # 에러 발생 시 상세 내용을 찍어줍니다.
             st.error(f"오류가 발생했습니다: {str(e)}")
-            if "quota" in str(e).lower():
-                st.warning("⚠️ 할당량 부족 에러입니다. 1분 뒤 다시 시도하거나, 1.5-flash 모델이 활성화될 때까지 기다려주세요.")
