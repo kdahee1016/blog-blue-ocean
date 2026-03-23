@@ -4,8 +4,8 @@ import google.generativeai as genai
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 초안 메이커", layout="centered")
 
-st.title("📝 내 경험이 담긴 블로그 초안 생성기")
-st.caption("직접 겪은 에피소드를 적어주시면 30대 감성으로 맛있게 버무려 드려요! ✨")
+st.title("📝 오키랑의 블로그 초안 생성기")
+st.caption("직접 겪은 에피소드를 적어주시면 자연스러운 감성으로 맛있게 버무려 드려요! ✨")
 
 # 사이드바: 설정
 with st.sidebar:
@@ -17,7 +17,7 @@ with st.sidebar:
 with st.container():
     col1, col2 = st.columns(2)
     with col1:
-        main_k = st.text_input("📍 메인 키워드 (4회 반복)", placeholder="예: 광양 닭구이 맛집")
+        main_k = st.text_input("📍 메인 키워드 (4회 반복)", placeholder="예: OO맛집")
     with col2:
         sub_k1 = st.text_input("🔍 서브 키워드 1", placeholder="예: 아이랑 가기 좋은")
         
@@ -25,12 +25,12 @@ with st.container():
     with col3:
         sub_k2 = st.text_input("🔍 서브 키워드 2", placeholder="예: 무한리필")
     with col4:
-        sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 내돈내산 후기")
+        sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 내돈내산")
 
     st.subheader("📸 나의 실제 경험 (흐름 적기)")
     user_experience = st.text_area(
         "블로그에 꼭 넣고 싶은 내용이나 흐름을 자유롭게 적어주세요.",
-        placeholder="예: 우리 아들이 닭구이를 평소 안 먹는데 여기서 3인분 먹음 / 주차장이 넓어서 편했음 등",
+        placeholder="예: 우리 아들이 OO를 평소 안 먹는데 여기서 2인분 먹음 / 주차장이 넓어서 편했음 등",
         height=200
     )
 
