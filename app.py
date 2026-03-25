@@ -93,20 +93,32 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
                 11. 요약문: 최상단에 240~280byte 요약문 포함.
                 """
                 
+            [이미지 프롬프트 생성 요청]
+            아래 주제들에 대해, Bing Image Creator에서 고퀄리티 이미지를 얻을 수 있는 영어 상세 묘사(프롬프트)를 각 1개씩 작성해줘.
+            주제 목록: {image_requests}
+            
+            조건: Hyper-realistic, 8k, photorealistic, cinematic lighting, rustic style, bokeh background 같은 수식어를 적절히 활용하여 미적으로 훌륭한 결과가 나오도록 할 것.
+            """
+            
+            with st.spinner(f"[{target_model_name}] 모델로 원고와 프롬프트를 짓는 중입니다..."):
                 response = model.generate_content(prompt)
                 full_text = response.text
                 
-                st.success("🎉 나만의 원고 작성이 완료되었습니다!")
-                st.divider()
+                # 확실한 구분선으로 분리
+                if "==========IMAGE_PROMPTS==========" in full_result:
+                    blog_script, image_prompts_raw = full_result.split("==========IMAGE_PROMPTS==========")
+                else:
+                    blog_script = full_result
+                    image_prompts_raw = ""
 
-                # --- [수정] 복사하기 버튼 추가 영역 ---
+                st.success("🎉 작성이 완료되었습니다!")
+                st.divider()
+                
+                # --- 원고 결과창 및 복사 버튼 ---
                 st.subheader("📋 생성된 블로그 원고")
+                st.text_area("원고 내용", value=blog_script, height=400, key="result_text")
                 
-                # 1. 텍스트 표시
-                st.text_area("원고 내용", value=full_text, height=500, key="result_text")
-                
-                # 2. 복사하기 버튼 (HTML/JS 사용)
-                # 이 방식은 추가 라이브러리 설치 없이도 잘 작동합니다.
+                # 원고 전체 복사 버튼 (HTML/JS 사용)
                 st.components.v1.html(f"""
                     <button onclick="copyToClipboard()" style="
                         width: 100%;
@@ -121,7 +133,7 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
                     
                     <script>
                     function copyToClipboard() {{
-                        const text = `{full_text.replace('`', '\\`').replace('$', '\\$')}`;
+                        const text = `{blog_script.replace('`', '\\`').replace('$', '\\$')}`;
                         navigator.clipboard.writeText(text).then(function() {{
                             alert('원고가 클립보드에 복사되었습니다! 네이버 블로그에 붙여넣으세요.');
                         }}, function(err) {{
@@ -130,14 +142,36 @@ if st.button("✨ 내 경험 반영해서 원고 만들기"):
                     }}
                     </script>
                 """, height=60)
-                # ------------------------------------
                 
-                st.download_button(
-                    label="💾 텍스트 파일로 저장",
-                    data=full_text,
-                    file_name=f"{main_k}_원고.txt",
-                    mime="text/plain"
-                )
+                st.divider()
+
+                # --- [핵심!] 이미지 프롬프트 결과창 및 멀티 탭 열기 버튼 ---
+                st.subheader("🖼️ 생성된 이미지 프롬프트 & Bing 생성창")
                 
+                # 프롬프트를 줄바꿈 기준으로 나누기
+                image_prompts = [p.strip() for p in image_prompts_raw.split('\n') if p.strip()]
+                
+                # 각 프롬프트를 텍스트로 보여주기
+                for i, p in enumerate(image_prompts):
+                    st.text_area(f"{i+1}번 이미지 프롬프트 (영어)", value=p, height=80, key=f"prompt_{i}")
+
+                # [모든 이미지 생성창 탭으로 열기] 버튼
+                if st.button("🚀 모든 이미지 생성창 탭으로 열기"):
+                    if not image_prompts:
+                        st.warning("생성된 이미지 프롬프트가 없습니다.")
+                    else:
+                        base_url = "https://www.bing.com/images/create?q="
+                        
+                        # 각 프롬프트에 대해 탭을 하나씩 열기
+                        for p in image_prompts:
+                            # 영문 프롬프트를 URL에 넣을 수 있도록 인코딩 (공백 -> %20 등)
+                            encoded_prompt = urllib.parse.quote(p)
+                            final_url = base_url + encoded_prompt
+                            
+                            # 브라우저의 새 탭으로 URL 열기
+                            webbrowser.open_new_tab(final_url)
+                            
+                        st.success(f"{len(image_prompts)}개의 이미지 생성창이 탭으로 열렸습니다! 각 탭에서 '만들기'를 눌러주세요.")
+
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
