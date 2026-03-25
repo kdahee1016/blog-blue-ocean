@@ -24,9 +24,7 @@ with st.sidebar:
 # --- 자동 모델 선택 함수 ---
 def get_available_model():
     try:
-        # 내 API 키로 사용 가능한 모델 목록을 가져옵니다.
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # 선호하는 모델 순서 (최신 순)
         priority_list = [
             "models/gemini-1.5-flash", 
             "models/gemini-1.5-flash-latest", 
@@ -35,10 +33,8 @@ def get_available_model():
         for model_path in priority_list:
             if model_path in available_models:
                 return genai.GenerativeModel(model_path)
-        # 목록에 없으면 첫 번째 사용 가능한 모델 반환
         return genai.GenerativeModel(available_models[0])
     except:
-        # 오류 발생 시 가장 기본 모델명 시도
         return genai.GenerativeModel("gemini-pro")
 
 # 메인 화면: 입력 폼
@@ -61,14 +57,14 @@ with st.container():
     st.subheader("🖼️ 필요한 이미지 목록")
     image_requests = st.text_input("이미지 주제들을 적어주세요.", placeholder="예: 30대 부모와 아이가 영화보는 모습 등")
 
-# --- 버튼 레이아웃 ---
+# --- 원고 & 이미지 전체 생성 버튼 ---
 if st.button("✨ 원고 & 이미지 전체 생성", use_container_width=True):
     if not api_key or not main_k:
         st.warning("API 키와 메인 키워드를 확인해주세요.")
     else:
         try:
             genai.configure(api_key=api_key)
-            model = get_available_model() # 자동 모델 선택 적용
+            model = get_available_model()
 
             image_instruction = ""
             if image_requests.strip():
@@ -97,4 +93,79 @@ if st.button("✨ 원고 & 이미지 전체 생성", use_container_width=True):
                 response = model.generate_content(prompt_text)
                 res_text = response.text
                 if SPLIT_TAG in res_text:
-                    st.session_state.blog_script, raw_
+                    st.session_state.blog_script, raw_img = res_text.split(SPLIT_TAG)
+                    st.session_state.image_prompts = [line.strip() for line in raw_img.strip().split('\n') if len(line) > 10]
+                else:
+                    st.session_state.blog_script = res_text
+                    st.session_state.image_prompts = []
+        except Exception as e:
+            st.error(f"오류가 발생했습니다: {str(e)}")
+
+# --- 결과 출력 영역 ---
+if st.session_state.blog_script:
+    st.divider()
+    st.subheader("📋 생성된 블로그 원고")
+    clean_blog = st.session_state.blog_script.split("**[이미지")[0].split("Image Prompt")[0].strip()
+    st.text_area("전체 원고", value=clean_blog, height=450)
+    
+    # 원고 전체 복사 버튼
+    safe_text = clean_blog.replace('`','\\`').replace('$','\\$').replace('\n','\\n')
+    st.components.v1.html(f"""
+        <script>
+        function copyText() {{
+            const el = document.createElement('textarea');
+            el.value = `{safe_text}`;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert('원고가 복사되었습니다!');
+        }}
+        </script>
+        <button onclick="copyText()" style="width:100%; height:45px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">📋 원고 전체 복사하기</button>
+    """, height=50)
+
+    # 이미지만 추가 생성 버튼 (원고 하단 배치)
+    if st.button("🖼️ 이미지만 추가/교체 생성", use_container_width=True):
+        if not api_key or not image_requests:
+            st.warning("API 키와 이미지 주제를 입력해주세요.")
+        else:
+            try:
+                genai.configure(api_key=api_key)
+                model = get_available_model()
+                img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
+                with st.spinner("이미지 프롬프트 생성 중..."):
+                    res = model.generate_content(img_prompt).text
+                    st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
+                    st.toast("프롬프트가 업데이트되었습니다!")
+            except Exception as e:
+                st.error(f"이미지 생성 오류: {e}")
+
+# --- 이미지 프롬프트 결과 영역 ---
+if st.session_state.image_prompts:
+    st.divider()
+    st.subheader("🖼️ 이미지 생성 가이드")
+    for i, p in enumerate(st.session_state.image_prompts):
+        p_clean = p.split(':', 1)[-1] if ':' in p else p
+        p_clean = p_clean.split('.', 1)[-1] if '.' in p_clean[:3] else p_clean
+        p_clean = p_clean.strip().replace('"', '')
+        
+        st.text_input(f"이미지 {i+1} 영문 프롬프트", value=p_clean, key=f"input_{i}")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.components.v1.html(f"""
+                <script>
+                function copyPrompt{i}() {{
+                    const el = document.createElement('textarea');
+                    el.value = `{p_clean}`;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    alert('{i+1}번 프롬프트 복사 완료!');
+                }}
+                </script>
+                <button onclick="copyPrompt{i}()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 복사</button>
+            """, height=40)
+        with c2:
+            st.link_button("🎨 Bing 생성", url="https://www.bing.com/images/create")
