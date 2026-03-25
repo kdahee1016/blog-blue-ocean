@@ -12,6 +12,8 @@ if "blog_script" not in st.session_state:
     st.session_state.blog_script = ""
 if "image_prompts" not in st.session_state:
     st.session_state.image_prompts = []
+if "full_prompt" not in st.session_state:
+    st.session_state.full_prompt = ""
 
 st.title("📝 블로그 초안 생성기")
 st.caption("직접 겪은 에피소드를 적어주시면 자연스러운 감성으로 맛있게 버무려 드려요! ✨")
@@ -65,8 +67,8 @@ if st.button("✨ 원고 & 이미지 생성하기", use_container_width=True):
             prompt_text = (
                 f"주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})\n"
                 f"내용: {user_experience}\n\n"
-                "[절대 누락 금지 구성 요소]\n"
-                "다음 4가지는 반드시 순서대로 모두 포함되어야 함:\n"
+                "[필독 지시사항 - 이 순서대로 안 쓰면 오류임]\n"
+                "다음 4가지는 반드시 순서대로 '모두' 포함되어야 함:\n"
                 "1. 제목추천 (상위노출용 3개)\n"
                 "2. 요약문 (240~280byte)\n"
                 "3. 본문 (2,000자~2,500자)\n"
@@ -81,17 +83,31 @@ if st.button("✨ 원고 & 이미지 생성하기", use_container_width=True):
                 f"- {image_instruction}\n"
             )
             
-            with st.spinner("정성을 듬뿍 담은 블로그 원고를 작성중입니다."):
+            with st.spinner("정성 듬-뿍 담은 원고를 작성중입니다. 잠시만 기다려 주세요."):
                 response = model.generate_content(prompt_text)
                 res_text = response.text
                 if SPLIT_TAG in res_text:
-                    st.session_state.blog_script, raw_img = res_text.split(SPLIT_TAG)
-                    st.session_state.image_prompts = [line.strip() for line in raw_img.strip().split('\n') if len(line) > 10]
+                    parts = res_text.split(SPLIT_TAG)
+                    st.session_state.blog_script = parts[0]
+                    st.session_state.image_prompts = [line.strip() for line in parts[1].strip().split('\n') if len(line) > 10]
                 else:
                     st.session_state.blog_script = res_text
                     st.session_state.image_prompts = []
         except Exception as e:
-            st.error(f"오류가 발생했습니다: {str(e)}")
+            st.error(f"오류: {str(e)}")
+
+if st.session_state.blog_script and len(st.session_state.blog_script) < 1000:
+    if st.button("🔽 본문이 누락됐거나 짧나요? 다시 길게 생성하기", use_container_width=True):
+        try:
+            genai.configure(api_key=api_key)
+            model = get_available_model()
+            retry_prompt = f"{st.session_state.full_prompt}\n\n방금 요약만 하고 본문을 안 썼어. 요약은 무시하고 '본문'부터 2,000자~2,500자로 길게 다시 써줘."
+            with st.spinner("본문을 다시 꽉 채워 생성 중입니다..."):
+                response = model.generate_content(retry_prompt)
+                st.session_state.blog_script = response.text
+                st.toast("원고가 다시 생성되었습니다!")
+        except Exception as e:
+            st.error(f"오류: {e}")
 
 # --- 결과 출력 영역 ---
 if st.session_state.blog_script:
