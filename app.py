@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import urllib.parse
 
 # 원고와 이미지를 갈라줄 고유 태그
 SPLIT_TAG = "[[SPLIT_HERE_FOR_IMAGES]]"
@@ -8,7 +7,7 @@ SPLIT_TAG = "[[SPLIT_HERE_FOR_IMAGES]]"
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 메이커", layout="centered")
 
-# --- 세션 상태 초기화 (원고 보존을 위한 저장소) ---
+# --- 세션 상태 초기화 ---
 if "blog_script" not in st.session_state:
     st.session_state.blog_script = ""
 if "image_prompts" not in st.session_state:
@@ -54,21 +53,16 @@ col_btn1, col_btn2 = st.columns(2)
 
 # 1. 원고 & 이미지 전체 생성
 if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
-    if not api_key:
-        st.error("API 키를 입력해주세요!")
-    elif not main_k:
-        st.warning("메인 키워드는 필수입니다.")
+    if not api_key or not main_k:
+        st.warning("API 키와 메인 키워드를 입력해주세요.")
     else:
         try:
             genai.configure(api_key=api_key)
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            priority_list = ["models/gemini-1.5-flash-latest", "models/gemini-flash-latest", "models/gemini-1.5-flash", "models/gemini-2.0-flash"]
-            target_model_name = next((m for m in priority_list if m in available_models), available_models[0])
-            model = genai.GenerativeModel(target_model_name)
+            model = genai.GenerativeModel("gemini-1.5-flash")
 
             image_instruction = ""
             if image_requests.strip():
-                image_instruction = f"원고 작성이 완전히 끝나면 반드시 '{SPLIT_TAG}'라는 문구를 한 줄 쓰고, 그 아래에 '{image_requests}'에 대한 Bing Image Creator용 영어 프롬프트를 번호(1., 2. ...)를 붙여 상세히 작성해줘."
+                image_instruction = f"원고 작성이 완전히 끝나면 반드시 '{SPLIT_TAG}'라는 문구를 한 줄 쓰고, 그 아래에 '{image_requests}'에 대한 Bing용 영어 프롬프트를 번호 붙여 상세히 작성해줘."
 
             prompt_text = (
                 f"주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})\n"
@@ -89,7 +83,7 @@ if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
                 "11. 요약문: 최상단에 240~280byte 요약문 포함."
             )
             
-            with st.spinner("원고와 이미지를 정성껏 준비 중입니다!"):
+            with st.spinner("원고와 이미지를 준비 중입니다!"):
                 response = model.generate_content(prompt_text)
                 res_text = response.text
                 if SPLIT_TAG in res_text:
@@ -101,7 +95,7 @@ if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
 
-# 2. 이미지만 단독 생성 (원고는 보존)
+# 2. 이미지만 단독 생성
 if col_btn2.button("🖼️ 이미지만 추가/교체 생성"):
     if not api_key or not image_requests:
         st.warning("API 키와 이미지 주제를 입력해주세요.")
@@ -109,11 +103,11 @@ if col_btn2.button("🖼️ 이미지만 추가/교체 생성"):
         try:
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel("gemini-1.5-flash")
-            img_prompt = f"'{image_requests}'에 대해 Bing Image Creator에서 사용할 상세한 영어 프롬프트를 3개 번호 붙여서 작성해줘. 서론 없이 프롬프트만."
+            img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
             with st.spinner("이미지 프롬프트 생성 중..."):
                 res = model.generate_content(img_prompt).text
                 st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
-                st.toast("이미지 프롬프트가 업데이트되었습니다!")
+                st.toast("프롬프트가 업데이트되었습니다!")
         except Exception as e:
             st.error(f"오류: {e}")
 
@@ -124,10 +118,22 @@ if st.session_state.blog_script:
     clean_blog = st.session_state.blog_script.split("**[이미지")[0].split("Image Prompt")[0].strip()
     st.text_area("전체 원고", value=clean_blog, height=450)
     
+    # 💡 복사 버튼 오류 해결: 텍스트가 아닌 '버튼'으로 렌더링되게 수정
+    safe_text = clean_blog.replace('`','\\`').replace('$','\\$').replace('\n','\\n')
     st.components.v1.html(f"""
-        <button onclick="navigator.clipboard.writeText(`{clean_blog.replace('`','\\`').replace('$','\\$')}`).then(()=>alert('원고가 복사되었습니다!'))" 
-        style="width:100%; height:40px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">📋 원고 전체 복사하기</button>
-    """, height=60)
+        <script>
+        function copyText() {{
+            const el = document.createElement('textarea');
+            el.value = `{safe_text}`;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert('원고가 복사되었습니다!');
+        }}
+        </script>
+        <button onclick="copyText()" style="width:100%; height:45px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">📋 원고 전체 복사하기</button>
+    """, height=65)
 
 if st.session_state.image_prompts:
     st.divider()
@@ -141,8 +147,18 @@ if st.session_state.image_prompts:
         c1, c2 = st.columns(2)
         with c1:
             st.components.v1.html(f"""
-                <button onclick="navigator.clipboard.writeText(`{p_clean}`).then(()=>alert('프롬프트가 복사되었습니다!'))" 
-                style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 복사</button>
+                <script>
+                function copyPrompt{i}() {{
+                    const el = document.createElement('textarea');
+                    el.value = `{p_clean}`;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    alert('{i+1}번 프롬프트 복사 완료!');
+                }}
+                </script>
+                <button onclick="copyPrompt{i}()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 복사</button>
             """, height=45)
         with c2:
             st.link_button("🎨 Bing 생성", url="https://www.bing.com/images/create")
