@@ -1,8 +1,3 @@
-원고 하단에 불필요한 이미지 관련 설명이 섞이지 않도록, SPLIT_TAG(구분선)를 정의하고 이를 기준으로 원고와 프롬프트를 완벽히 분리하는 로직을 적용했습니다. 또한, 제미나이가 임의로 붙이는 영어 제목([Image Prompt...] 등)까지 2중으로 걸러내도록 수정했습니다.
-
-다른 로직은 건드리지 않고, 출력 청소 기능만 강화한 전체 코드입니다.
-
-Python
 import streamlit as st
 import google.generativeai as genai
 import urllib.parse
