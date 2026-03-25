@@ -14,7 +14,7 @@ if "image_prompts" not in st.session_state:
     st.session_state.image_prompts = []
 
 st.title("📝 내 경험과 이미지가 담긴 블로그 초안 생성기")
-st.caption("말투를 일기체로 고정하고 하단 보고서 출력을 금지했습니다! ✨")
+st.caption("직접 겪은 에피소드를 적어주시면 자연스러운 감성으로 맛있게 버무려 드려요! ✨")
 
 # 사이드바: 설정
 with st.sidebar:
