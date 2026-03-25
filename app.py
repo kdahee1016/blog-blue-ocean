@@ -84,7 +84,7 @@ if st.button("✨ 원고 & 이미지 전체 생성", use_container_width=True):
                 "11. 요약문: 최상단에 240~280byte 요약문 포함."
             )
             
-            with st.spinner("SEO 최적화 원고를 길게 작성 중입니다..."):
+            with st.spinner("SEO 최적화 원고를 정성담아 작성해드릴게요."):
                 response = model.generate_content(prompt_text)
                 res_text = response.text
                 if SPLIT_TAG in res_text:
