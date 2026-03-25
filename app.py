@@ -19,13 +19,13 @@ with st.container():
     with col1:
         main_k = st.text_input("📍 메인 키워드", placeholder="예: 영화 ㅇㅇㅇ 후기")
     with col2:
-        sub_k1 = st.text_input("🔍 서브 키워드 1", placeholder="예: 아이랑 볼만한 영화")
+        sub_k1 = st.text_input("🔍 서브 키워드 1", placeholder="예: 초등학생 영화")
         
     col3, col4 = st.columns(2)
     with col3:
-        sub_k2 = st.text_input("🔍 서브 키워드 2", placeholder="예: 재난영화 추천")
+        sub_k2 = st.text_input("🔍 서브 키워드 2", placeholder="예: 아이랑 넷플릭스")
     with col4:
-        sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 초등학생 영화")
+        sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 기타 등등")
 
     st.subheader("📸 나의 실제 경험 (흐름 적기)")
     user_experience = st.text_area(
@@ -36,8 +36,8 @@ with st.container():
 
     st.subheader("🖼️ 필요한 이미지 목록")
     image_requests = st.text_input(
-        "이미지 주제들을 적어주세요.",
-        placeholder="예: 거대한 파도, 영화 보는 가족, 재난 가방"
+        "이미지 주제들을 적어주세요. 설명이 자세하면 더 좋아요!",
+        placeholder="예: 30대 아빠와 엄마 그리고 10살 아들이 영화보는 모습, 쓰나미가 몰아닥치는 도시, 땅이 갈라지며 땅 속으로 떨어지는 차 등 "
     )
 
 # 실행 버튼
@@ -75,9 +75,15 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                 st.stop()
                 
             model = genai.GenerativeModel(target_model_name)
+
+            # --- [핵심 수정] 이미지 요청이 있을 때만 프롬프트 지시사항 추가 ---
+            image_instruction = ""
+            if image_requests.strip(): # 공백이 아닌 실제 입력이 있을 때만!
+                image_instruction = f"""
+                
             # --------------------------------------------------
 
-            # 💡 구분선을 아주 확실한 텍스트로 지정합니다.
+            # 💡 구분선을 아주 확실한 텍스트로 지정
             prompt = f"""
             주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})
             내용: {user_experience}
@@ -134,33 +140,32 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
 
                 st.divider()
 
-                # --- 이미지 프롬프트 결과 (개별 복사 버튼 추가) ---
-                st.subheader("🖼️ 포스팅 관련 이미지 생성 가이드")
-                st.info("프롬프트 [복사] 후 [생성] 버튼을 눌러 Bing에 붙여넣으세요!")
-                
-                prompts = [p.strip() for p in image_prompts_raw.strip().split('\n') if p.strip()]
-                
-                for i, p in enumerate(prompts):
-                    # 프롬프트 가공
-                    clean_p = p.split('. ', 1)[-1] if '. ' in p[:5] else p
-                    clean_p = clean_p.replace('"', '').replace("'", "") # 따옴표 제거
+                # --- [핵심 수정] 이미지 요청이 있을 때만 가이드 영역 표시 ---
+                if image_requests.strip() and image_prompts_raw.strip():
+                    st.divider()
+                    st.subheader("🖼️ 이미지 생성 가이드")
+                    st.info("프롬프트 [복사] 후 [생성] 버튼을 눌러 Bing에 붙여넣으세요!")
                     
-                    st.text_input(f"이미지 {i+1} 영문 프롬프트", value=clean_p, key=f"input_{i}")
+                    prompts = [p.strip() for p in image_prompts_raw.strip().split('\n') if p.strip()]
                     
-                    col_copy, col_link = st.columns(2)
-                    with col_copy:
-                        # 개별 프롬프트 복사 버튼 (HTML/JS)
-                        st.components.v1.html(f"""
-                            <button onclick="copyP()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 {i+1} 복사</button>
-                            <script>
-                            function copyP() {{
-                                navigator.clipboard.writeText(`{clean_p}`).then(() => alert('{i+1}번 프롬프트가 복사되었습니다!'));
-                            }}
-                            </script>
-                        """, height=45)
-                    with col_link:
-                        # Bing 연결 버튼
-                        st.link_button(f"🎨 Bing에서 생성하기", url="https://www.bing.com/images/create")
-
+                    for i, p in enumerate(prompts):
+                        clean_p = p.split('. ', 1)[-1] if '. ' in p[:5] else p
+                        clean_p = clean_p.replace('"', '').replace("'", "")
+                        
+                        st.text_input(f"이미지 {i+1} 영문 프롬프트", value=clean_p, key=f"input_{i}")
+                        
+                        col_copy, col_link = st.columns(2)
+                        with col_copy:
+                            st.components.v1.html(f"""
+                                <button onclick="copyP()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 {i+1} 복사</button>
+                                <script>
+                                function copyP() {{
+                                    navigator.clipboard.writeText(`{clean_p}`).then(() => alert('{i+1}번 프롬프트가 복사되었습니다!'));
+                                }}
+                                </script>
+                            """, height=45)
+                        with col_link:
+                            st.link_button(f"🎨 Bing에서 생성하기", url="https://www.bing.com/images/create")
+                            
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
