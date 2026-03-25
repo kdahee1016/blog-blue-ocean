@@ -37,7 +37,7 @@ with st.container():
     st.subheader("🖼️ 필요한 이미지 목록")
     image_requests = st.text_input(
         "이미지 주제들을 적어주세요. 설명이 자세하면 더 좋아요!",
-        placeholder="예: 30대 아빠와 엄마 그리고 10살 아들이 영화보는 모습, 쓰나미가 몰아닥치는 도시, 땅이 갈라지며 땅 속으로 떨어지는 차 등 "
+        placeholder="예: 30대 아빠와 엄마 그리고 10살 아들이 영화보는 모습, 쓰나미가 몰아닥치는 도시 등"
     )
 
 # 실행 버튼
@@ -50,10 +50,8 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
         try:
             genai.configure(api_key=api_key)
             
-            # --- [핵심!] 사용 가능한 모델을 자동으로 찾는 로직 ---
+            # 사용 가능한 모델을 자동으로 찾는 로직
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            
-            # 우선순위 리스트 (429 에러를 피하기 위해 1.5 계열 우선)
             priority_list = [
                 "models/gemini-1.5-flash-latest",
                 "models/gemini-flash-latest",
@@ -76,45 +74,39 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                 
             model = genai.GenerativeModel(target_model_name)
 
-            # --- [핵심 수정] 이미지 요청이 있을 때만 프롬프트 지시사항 추가 ---
+            # 이미지 요청 여부에 따른 지시사항 구성
             image_instruction = ""
-            if image_requests.strip(): # 공백이 아닌 실제 입력이 있을 때만!
-                image_instruction = f"""
-                
-            # --------------------------------------------------
+            if image_requests.strip():
+                image_instruction = f"원고 작성이 끝나면 반드시 '==========IMAGE_PROMPTS=========='라는 문구를 쓰고, 그 아래에 {image_requests}에 대한 Bing용 영어 상세 묘사를 1줄씩 작성해줘."
 
-            # 💡 구분선을 아주 확실한 텍스트로 지정
-            prompt = f"""
-            주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})
-            내용: {user_experience}
-
-            [지시사항]
-            1. 아래 양식에 맞춰 네이버 블로그 원고를 작성해줘.
-            2. 원고 작성이 끝나면 반드시 '==========IMAGE_PROMPTS=========='라는 문구를 쓰고, 그 아래에 이미지 프롬프트를 작성해.
-
-            [원고 조건]
-            1. 키워드: '{main_k}' 4회, '{sub_k1}', '{sub_k2}', '{sub_k3}' 각 1회 자연스럽게 포함.
-            2. 제목: 상위노출 될 수 있는 제목 3개 추천.
-            3. 말투: 30대 여성의 일기체 (~했음, ~했다, 혼잣말). 친근하고 편안하게.
-            4. 가독성: 한 줄에 공백포함 최대 60-70byte 내외로 끊어서 작성(모바일 최적화).
-            5. 이모티콘: 리스트 중 5~6개 필수 사용 !(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ ,  ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /,٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്ദി( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).
-            6. 이모지: 문맥에 맞는 그림 이모지 10개 내외 활용.
-            7. AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토
-            8. 분량: 한글 기준 약 3,500자 내외로 아주 상세하게.
-            9. 상위노출SEO 반영해서 소제목 및 본문 작성
-            10. 흐름에 맞춰 소제목 넣기 (그림이모지1개+소제목)
-            11. 요약문: 최상단에 240~280byte 요약문 포함.
-
-            [이미지 프롬프트 조건]
-            - 주제: {image_requests}
-            - 각 주제별로 Bing에서 쓸 영어 상세 묘사를 1줄씩 작성해줘.
-            """
+            # 💡 SyntaxError 방지를 위해 프롬프트를 변수로 안전하게 조합
+            prompt_text = (
+                f"주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})\n"
+                f"내용: {user_experience}\n\n"
+                "[지시사항]\n"
+                "1. 아래 양식에 맞춰 네이버 블로그 원고를 작성해줘.\n"
+                f"2. {image_instruction}\n\n"
+                "[원고 조건]\n"
+                f"1. 키워드: '{main_k}' 4회, '{sub_k1}', '{sub_k2}', '{sub_k3}' 각 1회 자연스럽게 포함.\n"
+                "2. 제목: 상위노출 될 수 있는 제목 3개 추천.\n"
+                "3. 말투: 30대 여성의 일기체 (~했음, ~했다, 혼잣말). 친근하고 편안하게.\n"
+                "4. 가독성: 한 줄에 공백포함 최대 60-70byte 내외로 끊어서 작성(모바일 최적화).\n"
+                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്ദി( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
+                "6. 이모지: 문맥에 맞는 그림 이모지 10개 내외 활용.\n"
+                "7. AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토\n"
+                "8. 분량: 한글 기준 약 3,500자 내외로 아주 상세하게.\n"
+                "9. 상위노출SEO 반영해서 소제목 및 본문 작성\n"
+                "10. 흐름에 맞춰 소제목 넣기 (그림이모지1개+소제목)\n"
+                "11. 요약문: 최상단에 240~280byte 요약문 포함.\n\n"
+                "[이미지 프롬프트 조건]\n"
+                f"- 주제: {image_requests}\n"
+                "- 각 주제별로 Bing에서 쓸 영어 상세 묘사를 1줄씩 작성할 것."
+            )
             
             with st.spinner("원고와 이미지를 정성껏 준비 중입니다!"):
-                response = model.generate_content(prompt)
+                response = model.generate_content(prompt_text)
                 full_result = response.text
                 
-                # 확실한 구분선으로 분리
                 if "==========IMAGE_PROMPTS==========" in full_result:
                     blog_script, image_prompts_raw = full_result.split("==========IMAGE_PROMPTS==========")
                 else:
@@ -123,11 +115,9 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
 
                 st.success("🎉 작성이 완료되었습니다!")
                 
-                # --- 원고 출력 ---
                 st.subheader("📋 생성된 블로그 원고")
                 st.text_area("전체 원고", value=blog_script.strip(), height=450)
                 
-                # 복사 버튼 (HTML)
                 st.components.v1.html(f"""
                     <button onclick="copyToClipboard()" style="width:100%; height:40px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">📋 원고 전체 복사하기</button>
                     <script>
@@ -138,9 +128,6 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                     </script>
                 """, height=60)
 
-                st.divider()
-
-                # --- [핵심 수정] 이미지 요청이 있을 때만 가이드 영역 표시 ---
                 if image_requests.strip() and image_prompts_raw.strip():
                     st.divider()
                     st.subheader("🖼️ 이미지 생성 가이드")
