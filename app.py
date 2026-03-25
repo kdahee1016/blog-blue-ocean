@@ -49,7 +49,33 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
+            
+            # --- [핵심!] 사용 가능한 모델을 자동으로 찾는 로직 ---
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            # 우선순위 리스트 (429 에러를 피하기 위해 1.5 계열 우선)
+            priority_list = [
+                "models/gemini-1.5-flash-latest",
+                "models/gemini-flash-latest",
+                "models/gemini-1.5-flash",
+                "models/gemini-2.0-flash"
+            ]
+            
+            target_model_name = None
+            for m_name in priority_list:
+                if m_name in available_models:
+                    target_model_name = m_name
+                    break
+            
+            if not target_model_name and available_models:
+                target_model_name = available_models[0]
+            
+            if not target_model_name:
+                st.error("사용 가능한 모델을 찾을 수 없습니다.")
+                st.stop()
+                
+            model = genai.GenerativeModel(target_model_name)
+            # --------------------------------------------------
 
             # 💡 구분선을 아주 확실한 텍스트로 지정합니다.
             prompt = f"""
