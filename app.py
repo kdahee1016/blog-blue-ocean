@@ -107,26 +107,27 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                 response = model.generate_content(prompt_text)
                 full_result = response.text
                 
-                if "==========IMAGE_PROMPTS==========" in full_result:
-                    blog_script, image_prompts_raw = full_result.split("==========IMAGE_PROMPTS==========")
+                # ⭐ 확실한 절단 로직
+                if split_tag in full_result:
+                    blog_script, image_prompts_raw = full_result.split(split_tag)
                 else:
                     blog_script = full_result
                     image_prompts_raw = ""
 
-                # ⭐ [추가 수정] 원고 하단에 잔여 조건 문구가 남는 현상 방지
-                blog_script = blog_script.split("[이미지 프롬프트 조건]")[0].strip()
+                # 원고 하단에 혹시나 남을 수 있는 잔여 영어 제목들 청소
+                clean_blog_script = blog_script.split("**[")[0].split("[Image")[0].strip()
 
                 st.success("🎉 작성이 완료되었습니다!")
                 
                 st.subheader("📋 생성된 블로그 원고")
-                st.text_area("전체 원고", value=blog_script, height=450)
+                st.text_area("전체 원고", value=clean_blog_script, height=450)
                 
                 st.components.v1.html(f"""
                     <button onclick="copyToClipboard()" style="width:100%; height:40px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">📋 원고 전체 복사하기</button>
                     <script>
                     function copyToClipboard() {{
-                        const text = `{blog_script.replace('`', '\\`').replace('$', '\\$')}`;
-                        navigator.clipboard.writeText(text).then(function() {{ alert('원고가 복사되었어요!'); }});
+                        const text = `{clean_blog_script.replace('`', '\\`').replace('$', '\\$')}`;
+                        navigator.clipboard.writeText(text).then(function() {{ alert('원고가 복사되었습니다!'); }});
                     }}
                     </script>
                 """, height=60)
@@ -134,30 +135,34 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                 if image_requests.strip() and image_prompts_raw.strip():
                     st.divider()
                     st.subheader("🖼️ 이미지 생성 가이드")
-                    st.info("프롬프트 [복사] 후 [생성] 버튼을 눌러 Bing에 붙여넣으세요!")
                     
-                    # '조건' 문구가 포함된 경우를 대비해 필터링
-                    prompts = [p.strip() for p in image_prompts_raw.strip().split('\n') 
-                               if p.strip() and "[이미지 프롬프트 조건]" not in p and "Scene" in p or len(p) > 20]
-                    
-                    for i, p in enumerate(prompts[:10]): # 최대 10개까지 표시
-                        clean_p = p.split('. ', 1)[-1] if '. ' in p[:5] else p
-                        clean_p = clean_p.replace('"', '').replace("'", "")
+                    # 프롬프트 줄단위로 나누기
+                    lines = image_prompts_raw.strip().split('\n')
+                    prompt_list = []
+                    for line in lines:
+                        # 숫자나 'Scene'으로 시작하는 실제 프롬프트 내용만 추출
+                        if any(line.strip().startswith(str(n)) for n in range(1, 10)) or "Scene" in line:
+                            # 'Scene 1:' 같은 머리말 제거 시도
+                            clean_line = line.split(':', 1)[-1] if ':' in line else line
+                            clean_line = clean_line.split('.', 1)[-1] if '.' in clean_line[:3] else clean_line
+                            prompt_list.append(clean_line.strip().replace('"', ''))
+
+                    for i, p in enumerate(prompt_list):
+                        if len(p) < 10: continue # 너무 짧은 줄은 패스
                         
-                        st.text_input(f"이미지 {i+1} 영문 프롬프트", value=clean_p, key=f"input_{i}")
-                        
+                        st.text_input(f"이미지 {i+1} 영문 프롬프트", value=p, key=f"input_{i}")
                         col_copy, col_link = st.columns(2)
                         with col_copy:
                             st.components.v1.html(f"""
                                 <button onclick="copyP()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 {i+1} 복사</button>
                                 <script>
                                 function copyP() {{
-                                    navigator.clipboard.writeText(`{clean_p}`).then(() => alert('{i+1}번 프롬프트가 복사되었습니다!'));
+                                    navigator.clipboard.writeText(`{p}`).then(() => alert('{i+1}번 복사 완료!'));
                                 }}
                                 </script>
                             """, height=45)
                         with col_link:
-                            st.link_button(f"🎨 Bing에서 생성하기", url="https://www.bing.com/images/create")
+                            st.link_button(f"🎨 생성하기", url="https://www.bing.com/images/create")
                             
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
