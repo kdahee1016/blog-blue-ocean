@@ -134,23 +134,33 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
 
                 st.divider()
 
-                # --- 이미지 프롬프트 출력 ---
-                st.subheader("🖼️ 이미지 생성 가이드")
-                st.info("아래 버튼을 누르면 Bing 이미지 생성창으로 바로 연결됩니다.")
+                # --- 이미지 프롬프트 결과 (개별 복사 버튼 추가) ---
+                st.subheader("🖼️ 포스팅 관련 이미지 생성 가이드")
+                st.info("프롬프트 [복사] 후 [생성] 버튼을 눌러 Bing에 붙여넣으세요!")
                 
                 prompts = [p.strip() for p in image_prompts_raw.strip().split('\n') if p.strip()]
                 
                 for i, p in enumerate(prompts):
-                    # 프롬프트 앞에 번호가 붙어있으면 제거 (예: "1. Prompt" -> "Prompt")
+                    # 프롬프트 가공
                     clean_p = p.split('. ', 1)[-1] if '. ' in p[:5] else p
-                    encoded_p = urllib.parse.quote(clean_p)
-                    bing_url = f"https://www.bing.com/images/create?q={encoded_p}"
+                    clean_p = clean_p.replace('"', '').replace("'", "") # 따옴표 제거
                     
-                    col_p, col_btn = st.columns([3, 1])
-                    with col_p:
-                        st.text_input(f"이미지 {i+1} 프롬프트", value=clean_p, key=f"p_{i}")
-                    with col_btn:
-                        st.link_button(f"🎨 생성 {i+1}", url=bing_url)
+                    st.text_input(f"이미지 {i+1} 영문 프롬프트", value=clean_p, key=f"input_{i}")
+                    
+                    col_copy, col_link = st.columns(2)
+                    with col_copy:
+                        # 개별 프롬프트 복사 버튼 (HTML/JS)
+                        st.components.v1.html(f"""
+                            <button onclick="copyP()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 {i+1} 복사</button>
+                            <script>
+                            function copyP() {{
+                                navigator.clipboard.writeText(`{clean_p}`).then(() => alert('{i+1}번 프롬프트가 복사되었습니다!'));
+                            }}
+                            </script>
+                        """, height=45)
+                    with col_link:
+                        # Bing 연결 버튼
+                        st.link_button(f"🎨 Bing에서 생성하기", url="https://www.bing.com/images/create")
 
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
