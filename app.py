@@ -49,7 +49,7 @@ with st.container():
     )
 
 # --- 상단에는 '전체 생성' 버튼만 배치 ---
-if st.button("✨ 원고 & 이미지 전체 생성", use_container_width=True):
+if st.button("✨ 원고 & 이미지 생성", use_container_width=True):
     if not api_key or not main_k:
         st.warning("API 키와 메인 키워드를 입력해주세요.")
     else:
