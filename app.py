@@ -8,6 +8,12 @@ SPLIT_TAG = "[[SPLIT_HERE_FOR_IMAGES]]"
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 메이커", layout="centered")
 
+# --- 세션 상태 초기화 (원고 보존용) ---
+if "blog_script" not in st.session_state:
+    st.session_state.blog_script = ""
+if "image_prompts" not in st.session_state:
+    st.session_state.image_prompts = []
+
 st.title("📝 내 경험과 이미지가 담긴 블로그 초안 생성기")
 st.caption("직접 겪은 에피소드를 적어주시면 자연스러운 감성으로 맛있게 버무려 드려요! ✨")
 
@@ -119,6 +125,24 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                     </script>
                 """, height=60)
 
+# 2. 이미지만 추가 생성 버튼 (기존 원고 유지)
+if col_btn2.button("🖼️ 이미지만 추가/교체 생성"):
+    if not api_key or not image_requests:
+        st.warning("API 키와 이미지 주제를 입력해주세요.")
+    else:
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            img_prompt = f"'{image_requests}'에 대해 Bing Image Creator에서 사용할 상세한 영어 프롬프트를 3개 정도 번호 붙여서 작성해줘. 서론 없이 프롬프트만."
+            
+            with st.spinner("이미지 프롬프트만 생성 중..."):
+                res = model.generate_content(img_prompt).text
+                st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
+                st.toast("이미지 프롬프트가 업데이트되었습니다! 👇")
+        except Exception as e:
+            st.error(f"오류: {e}")
+                
                 # --- 이미지 영역 (요청사항이 있을 때만 표시) ---
                 if image_requests.strip() and image_prompts_raw.strip():
                     st.divider()
