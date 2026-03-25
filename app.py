@@ -113,6 +113,9 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                     blog_script = full_result
                     image_prompts_raw = ""
 
+                # ⭐ [추가 수정] 원고 하단에 잔여 조건 문구가 남는 현상 방지
+                blog_script = blog_script.split("[이미지 프롬프트 조건]")[0].strip()
+                
                 st.success("🎉 작성이 완료되었습니다!")
                 
                 st.subheader("📋 생성된 블로그 원고")
