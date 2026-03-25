@@ -21,41 +21,54 @@ with st.sidebar:
     st.header("⚙️ 설정")
     api_key = st.text_input("Gemini API Key를 입력하세요", type="password")
 
+# --- 자동 모델 선택 함수 ---
+def get_available_model():
+    try:
+        # 내 API 키로 사용 가능한 모델 목록을 가져옵니다.
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # 선호하는 모델 순서 (최신 순)
+        priority_list = [
+            "models/gemini-1.5-flash", 
+            "models/gemini-1.5-flash-latest", 
+            "models/gemini-pro"
+        ]
+        for model_path in priority_list:
+            if model_path in available_models:
+                return genai.GenerativeModel(model_path)
+        # 목록에 없으면 첫 번째 사용 가능한 모델 반환
+        return genai.GenerativeModel(available_models[0])
+    except:
+        # 오류 발생 시 가장 기본 모델명 시도
+        return genai.GenerativeModel("gemini-pro")
+
 # 메인 화면: 입력 폼
 with st.container():
     col1, col2 = st.columns(2)
     with col1:
         main_k = st.text_input("📍 메인 키워드", placeholder="예: 영화 ㅇㅇㅇ 후기")
     with col2:
-        sub_k1 = st.text_input("🔍 서브 키워드 1", placeholder="예: 초등학생 영화")
+        sub_k1 = st.text_input("🔍 서브 키워드 1")
         
     col3, col4 = st.columns(2)
     with col3:
-        sub_k2 = st.text_input("🔍 서브 키워드 2", placeholder="예: 아이랑 넷플릭스")
+        sub_k2 = st.text_input("🔍 서브 키워드 2")
     with col4:
-        sub_k3 = st.text_input("🔍 서브 키워드 3", placeholder="예: 기타 등등")
+        sub_k3 = st.text_input("🔍 서브 키워드 3")
 
     st.subheader("📸 나의 실제 경험 (흐름 적기)")
-    user_experience = st.text_area(
-        "블로그에 꼭 넣고 싶은 내용이나 흐름을 자유롭게 적어주세요.",
-        placeholder="예: 아들이랑 봤는데 너무 재밌어함, 재난 가방 싸야겠다고 난리법석 등",
-        height=150
-    )
+    user_experience = st.text_area("블로그에 꼭 넣고 싶은 내용이나 흐름을 자유롭게 적어주세요.", height=150)
 
     st.subheader("🖼️ 필요한 이미지 목록")
-    image_requests = st.text_input(
-        "이미지 주제들을 적어주세요.",
-        placeholder="예: 30대 부모와 아이가 영화보는 모습 등"
-    )
+    image_requests = st.text_input("이미지 주제들을 적어주세요.", placeholder="예: 30대 부모와 아이가 영화보는 모습 등")
 
-# --- 상단에는 '전체 생성' 버튼만 배치 ---
-if st.button("✨ 원고 & 이미지 생성", use_container_width=True):
+# --- 버튼 레이아웃 ---
+if st.button("✨ 원고 & 이미지 전체 생성", use_container_width=True):
     if not api_key or not main_k:
-        st.warning("API 키와 메인 키워드를 입력해주세요.")
+        st.warning("API 키와 메인 키워드를 확인해주세요.")
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = get_available_model() # 자동 모델 선택 적용
 
             image_instruction = ""
             if image_requests.strip():
@@ -71,7 +84,7 @@ if st.button("✨ 원고 & 이미지 생성", use_container_width=True):
                 "2. 제목: 상위노출 될 수 있는 제목 3개 추천.\n"
                 "3. 말투: 30대 여성의 일기체 (~했음, ~했다, 혼잣말). 친근하고 편안하게.\n"
                 "4. 가독성: 한 줄에 공백포함 최대 60-70byte 내외로 끊어서 작성(모바일 최적화).\n"
-                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്디( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
+                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്디( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
                 "6. 이모지: 문맥에 맞는 그림 이모지 10개 내외 활용.\n"
                 "7. AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토\n"
                 "8. 분량: 한글 기준 약 3,500자 내외로 아주 상세하게.\n"
@@ -84,79 +97,4 @@ if st.button("✨ 원고 & 이미지 생성", use_container_width=True):
                 response = model.generate_content(prompt_text)
                 res_text = response.text
                 if SPLIT_TAG in res_text:
-                    st.session_state.blog_script, raw_img = res_text.split(SPLIT_TAG)
-                    st.session_state.image_prompts = [line.strip() for line in raw_img.strip().split('\n') if len(line) > 10]
-                else:
-                    st.session_state.blog_script = res_text
-                    st.session_state.image_prompts = []
-        except Exception as e:
-            st.error(f"오류가 발생했습니다: {str(e)}")
-
-# --- 결과 출력 영역 ---
-if st.session_state.blog_script:
-    st.divider()
-    st.subheader("📋 생성된 블로그 원고")
-    clean_blog = st.session_state.blog_script.split("**[이미지")[0].split("Image Prompt")[0].strip()
-    st.text_area("전체 원고", value=clean_blog, height=450)
-    
-    # 1. 원고 전체 복사 버튼
-    safe_text = clean_blog.replace('`','\\`').replace('$','\\$').replace('\n','\\n')
-    st.components.v1.html(f"""
-        <script>
-        function copyText() {{
-            const el = document.createElement('textarea');
-            el.value = `{safe_text}`;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            alert('원고가 복사되었습니다!');
-        }}
-        </script>
-        <button onclick="copyText()" style="width:100%; height:45px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">📋 원고 전체 복사하기</button>
-    """, height=50)
-
-    # 2. 💡 [위치 이동] 이미지만 추가/교체 생성 버튼 (원고 하단에 배치)
-    if st.button("🖼️ 이미지 추가 생성", use_container_width=True):
-        if not api_key or not image_requests:
-            st.warning("API 키와 이미지 주제를 입력해주세요.")
-        else:
-            try:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
-                with st.spinner("이미지 프롬프트 생성 중..."):
-                    res = model.generate_content(img_prompt).text
-                    st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
-                    st.toast("프롬프트가 업데이트되었습니다! 하단을 확인하세요.")
-            except Exception as e:
-                st.error(f"오류: {e}")
-
-# --- 이미지 프롬프트 결과 영역 ---
-if st.session_state.image_prompts:
-    st.divider()
-    st.subheader("🖼️ 이미지 생성 가이드")
-    for i, p in enumerate(st.session_state.image_prompts):
-        p_clean = p.split(':', 1)[-1] if ':' in p else p
-        p_clean = p_clean.split('.', 1)[-1] if '.' in p_clean[:3] else p_clean
-        p_clean = p_clean.strip().replace('"', '')
-        
-        st.text_input(f"이미지 {i+1} 영문 프롬프트", value=p_clean, key=f"input_{i}")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.components.v1.html(f"""
-                <script>
-                function copyPrompt{i}() {{
-                    const el = document.createElement('textarea');
-                    el.value = `{p_clean}`;
-                    document.body.appendChild(el);
-                    el.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(el);
-                    alert('{i+1}번 프롬프트 복사 완료!');
-                }}
-                </script>
-                <button onclick="copyPrompt{i}()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 복사</button>
-            """, height=40)
-        with c2:
-            st.link_button("🎨 Bing 생성", url="https://www.bing.com/images/create")
+                    st.session_state.blog_script, raw_
