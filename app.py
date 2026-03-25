@@ -95,21 +95,6 @@ if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
 
-# 2. 이미지만 단독 생성
-if col_btn2.button("🖼️ 이미지만 추가/교체 생성"):
-    if not api_key or not image_requests:
-        st.warning("API 키와 이미지 주제를 입력해주세요.")
-    else:
-        try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
-            with st.spinner("이미지 프롬프트 생성 중..."):
-                res = model.generate_content(img_prompt).text
-                st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
-                st.toast("프롬프트가 업데이트되었습니다!")
-        except Exception as e:
-            st.error(f"오류: {e}")
 
 # --- 결과 출력 영역 ---
 if st.session_state.blog_script:
@@ -134,6 +119,21 @@ if st.session_state.blog_script:
         </script>
         <button onclick="copyText()" style="width:100%; height:45px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">📋 원고 전체 복사하기</button>
     """, height=65)
+
+if col_btn2.button("🖼️ 이미지만 추가/교체 생성"):
+    if not api_key or not image_requests:
+        st.warning("API 키와 이미지 주제를 입력해주세요.")
+    else:
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
+            with st.spinner("이미지 프롬프트 생성 중..."):
+                res = model.generate_content(img_prompt).text
+                st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
+                st.toast("프롬프트가 업데이트되었습니다!")
+        except Exception as e:
+            st.error(f"오류: {e}")
 
 if st.session_state.image_prompts:
     st.divider()
