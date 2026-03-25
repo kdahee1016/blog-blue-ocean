@@ -48,11 +48,8 @@ with st.container():
         placeholder="예: 30대 부모와 아이가 영화보는 모습 등"
     )
 
-# --- 버튼 레이아웃 ---
-col_btn1, col_btn2 = st.columns(2)
-
-# 1. 원고 & 이미지 전체 생성
-if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
+# --- 상단에는 '전체 생성' 버튼만 배치 ---
+if st.button("✨ 원고 & 이미지 전체 생성", use_container_width=True):
     if not api_key or not main_k:
         st.warning("API 키와 메인 키워드를 입력해주세요.")
     else:
@@ -74,7 +71,7 @@ if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
                 "2. 제목: 상위노출 될 수 있는 제목 3개 추천.\n"
                 "3. 말투: 30대 여성의 일기체 (~했음, ~했다, 혼잣말). 친근하고 편안하게.\n"
                 "4. 가독성: 한 줄에 공백포함 최대 60-70byte 내외로 끊어서 작성(모바일 최적화).\n"
-                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്디( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
+                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖·- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്디( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
                 "6. 이모지: 문맥에 맞는 그림 이모지 10개 내외 활용.\n"
                 "7. AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토\n"
                 "8. 분량: 한글 기준 약 3,500자 내외로 아주 상세하게.\n"
@@ -95,7 +92,6 @@ if col_btn1.button("✨ 원고 & 이미지 전체 생성"):
         except Exception as e:
             st.error(f"오류가 발생했습니다: {str(e)}")
 
-
 # --- 결과 출력 영역 ---
 if st.session_state.blog_script:
     st.divider()
@@ -103,7 +99,7 @@ if st.session_state.blog_script:
     clean_blog = st.session_state.blog_script.split("**[이미지")[0].split("Image Prompt")[0].strip()
     st.text_area("전체 원고", value=clean_blog, height=450)
     
-    # 💡 복사 버튼 오류 해결: 텍스트가 아닌 '버튼'으로 렌더링되게 수정
+    # 1. 원고 전체 복사 버튼
     safe_text = clean_blog.replace('`','\\`').replace('$','\\$').replace('\n','\\n')
     st.components.v1.html(f"""
         <script>
@@ -118,23 +114,25 @@ if st.session_state.blog_script:
         }}
         </script>
         <button onclick="copyText()" style="width:100%; height:45px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">📋 원고 전체 복사하기</button>
-    """, height=65)
+    """, height=50)
 
-if col_btn2.button("🖼️ 이미지만 추가/교체 생성"):
-    if not api_key or not image_requests:
-        st.warning("API 키와 이미지 주제를 입력해주세요.")
-    else:
-        try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
-            with st.spinner("이미지 프롬프트 생성 중..."):
-                res = model.generate_content(img_prompt).text
-                st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
-                st.toast("프롬프트가 업데이트되었습니다!")
-        except Exception as e:
-            st.error(f"오류: {e}")
+    # 2. 💡 [위치 이동] 이미지만 추가/교체 생성 버튼 (원고 하단에 배치)
+    if st.button("🖼️ 이미지 추가 생성", use_container_width=True):
+        if not api_key or not image_requests:
+            st.warning("API 키와 이미지 주제를 입력해주세요.")
+        else:
+            try:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                img_prompt = f"'{image_requests}'에 대해 Bing Image Creator용 상세 영어 프롬프트를 3개 작성해줘. 서론 없이 프롬프트만."
+                with st.spinner("이미지 프롬프트 생성 중..."):
+                    res = model.generate_content(img_prompt).text
+                    st.session_state.image_prompts = [line.strip() for line in res.strip().split('\n') if len(line) > 10]
+                    st.toast("프롬프트가 업데이트되었습니다! 하단을 확인하세요.")
+            except Exception as e:
+                st.error(f"오류: {e}")
 
+# --- 이미지 프롬프트 결과 영역 ---
 if st.session_state.image_prompts:
     st.divider()
     st.subheader("🖼️ 이미지 생성 가이드")
@@ -159,6 +157,6 @@ if st.session_state.image_prompts:
                 }}
                 </script>
                 <button onclick="copyPrompt{i}()" style="width:100%; height:35px; background-color:#007BFF; color:white; border:none; border-radius:5px; cursor:pointer;">📝 프롬프트 복사</button>
-            """, height=45)
+            """, height=40)
         with c2:
             st.link_button("🎨 Bing 생성", url="https://www.bing.com/images/create")
