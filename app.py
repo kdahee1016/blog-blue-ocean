@@ -1,6 +1,14 @@
+원고 하단에 불필요한 이미지 관련 설명이 섞이지 않도록, SPLIT_TAG(구분선)를 정의하고 이를 기준으로 원고와 프롬프트를 완벽히 분리하는 로직을 적용했습니다. 또한, 제미나이가 임의로 붙이는 영어 제목([Image Prompt...] 등)까지 2중으로 걸러내도록 수정했습니다.
+
+다른 로직은 건드리지 않고, 출력 청소 기능만 강화한 전체 코드입니다.
+
+Python
 import streamlit as st
 import google.generativeai as genai
 import urllib.parse
+
+# 고유한 구분선을 미리 정의합니다.
+SPLIT_TAG = "[[SPLIT_HERE_FOR_IMAGES]]"
 
 # 페이지 설정
 st.set_page_config(page_title="오키랑의 블로그 메이커", layout="centered")
@@ -77,9 +85,9 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
             # 이미지 요청 여부에 따른 지시사항 구성
             image_instruction = ""
             if image_requests.strip():
-                image_instruction = f"원고 작성이 끝나면 반드시 '==========IMAGE_PROMPTS=========='라는 문구를 쓰고, 그 아래에 {image_requests}에 대한 Bing용 영어 상세 묘사를 1줄씩 작성해줘."
+                image_instruction = f"원고 작성이 끝나면 반드시 '{SPLIT_TAG}'라는 문구를 한 줄 쓰고, 그 아래에 {image_requests}에 대한 Bing용 영어 상세 프롬프트를 번호 붙여서 작성해줘."
 
-            # 💡 SyntaxError 방지를 위해 프롬프트를 변수로 안전하게 조합
+            # 프롬프트 조합
             prompt_text = (
                 f"주제: {main_k} (서브: {sub_k1}, {sub_k2}, {sub_k3})\n"
                 f"내용: {user_experience}\n\n"
@@ -91,7 +99,7 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                 "2. 제목: 상위노출 될 수 있는 제목 3개 추천.\n"
                 "3. 말투: 30대 여성의 일기체 (~했음, ~했다, 혼잣말). 친근하고 편안하게.\n"
                 "4. 가독성: 한 줄에 공백포함 최대 60-70byte 내외로 끊어서 작성(모바일 최적화).\n"
-                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്ദി( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
+                "5. 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ , ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /, ٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്디( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
                 "6. 이모지: 문맥에 맞는 그림 이모지 10개 내외 활용.\n"
                 "7. AI가 쓴 것 같지 않도록 작성하되 중복문서 걸리지 않게 이중검토\n"
                 "8. 분량: 한글 기준 약 3,500자 내외로 아주 상세하게.\n"
@@ -107,15 +115,18 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                 response = model.generate_content(prompt_text)
                 full_result = response.text
                 
-                # ⭐ 확실한 절단 로직
-                if split_tag in full_result:
-                    blog_script, image_prompts_raw = full_result.split(split_tag)
+                # 확실한 절단 로직 (SPLIT_TAG 기준)
+                if SPLIT_TAG in full_result:
+                    blog_script, image_prompts_raw = full_result.split(SPLIT_TAG)
                 else:
                     blog_script = full_result
                     image_prompts_raw = ""
 
                 # 원고 하단에 혹시나 남을 수 있는 잔여 영어 제목들 청소
-                clean_blog_script = blog_script.split("**[")[0].split("[Image")[0].strip()
+                clean_blog_script = blog_script.strip()
+                for target in ["**[", "[Image", "Image Prompt", "[이미지"]:
+                    if target in clean_blog_script:
+                        clean_blog_script = clean_blog_script.split(target)[0].strip()
 
                 st.success("🎉 작성이 완료되었습니다!")
                 
@@ -136,19 +147,22 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                     st.divider()
                     st.subheader("🖼️ 이미지 생성 가이드")
                     
-                    # 프롬프트 줄단위로 나누기
                     lines = image_prompts_raw.strip().split('\n')
                     prompt_list = []
                     for line in lines:
-                        # 숫자나 'Scene'으로 시작하는 실제 프롬프트 내용만 추출
-                        if any(line.strip().startswith(str(n)) for n in range(1, 10)) or "Scene" in line:
+                        # 숫자나 'Scene' 혹은 긴 영어 문장만 추출
+                        line_strip = line.strip()
+                        if not line_strip or line_strip.startswith('[') or line_strip.startswith('*'):
+                            continue
+                            
+                        if any(line_strip.startswith(str(n)) for n in range(1, 10)) or "Scene" in line_strip or len(line_strip) > 30:
                             # 'Scene 1:' 같은 머리말 제거 시도
-                            clean_line = line.split(':', 1)[-1] if ':' in line else line
+                            clean_line = line_strip.split(':', 1)[-1] if ':' in line_strip else line_strip
                             clean_line = clean_line.split('.', 1)[-1] if '.' in clean_line[:3] else clean_line
                             prompt_list.append(clean_line.strip().replace('"', ''))
 
                     for i, p in enumerate(prompt_list):
-                        if len(p) < 10: continue # 너무 짧은 줄은 패스
+                        if len(p) < 10: continue
                         
                         st.text_input(f"이미지 {i+1} 영문 프롬프트", value=p, key=f"input_{i}")
                         col_copy, col_link = st.columns(2)
