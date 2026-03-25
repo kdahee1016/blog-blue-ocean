@@ -71,7 +71,7 @@ if st.button("✨ 원고 & 이미지 생성하기", use_container_width=True):
                 "다음 4가지는 반드시 순서대로 '모두' 포함되어야 함:\n"
                 "1. 제목추천 (상위노출용 3개)\n"
                 "2. 요약문 (240~280byte)\n"
-                "3. 본문 (2,000자~2,500자)\n"
+                "3. 본문 (1,500자~2,200자)\n"
                 "4. 추천해시태그 10개 (본문 하단에 배치)\n\n"
                 "[원고 조건 - 엄격 준수]\n"
                 f"- 키워드: '{main_k}' 4회, '{sub_k1}', '{sub_k2}', '{sub_k3}' 각 1회 자연스럽게 포함.\n"
@@ -79,7 +79,7 @@ if st.button("✨ 원고 & 이미지 생성하기", use_container_width=True):
                 "- 소제목 형식: 반드시 '[그림이모지 1개 + 소제목]' 형식을 지킬 것.\n"
                 "- 가독성: 한 줄에 60-70byte 내외로 짧게 끊기(모바일 최적화).\n"
                 "- 이모티콘: 리스트 중 5~6개 필수 사용 (!(•̀ᴗ•́)و ̑̑ , (*ᴗ͈ˬᴗ͈)ꕤ*.ﾟ , (୨୧ ❛ᴗ❛)✧ , (୨୧ •͈ᴗ•͈) , (•̆ꈊ•̆ ) , (ꈍᴗꈍ)♡ ,  ̗̀ෆ(˶'ᵕ'˶)ෆ ̖́- , ٩(*•̀ᴗ•́*)و /,٩( ᐢ-ᐢ ), / ٩(๑❛ᴗ❛๑)۶♡ , ٩(◕ᗜ◕)و , ദ്ദി( ¯꒳¯ ) , ☆٩(｡•ω<｡)﻿و , :) , :D , >_< , +ㅂ+ 등).\n"
-                "- SEO: 상위노출을 위해 정보성과 경험을 듬뿍 담아 2,000~2,500자로 상세히 작성.\n"
+                "- SEO: 상위노출을 위해 정보성과 경험을 듬뿍 담아 1,500~2,200자로 상세히 작성.\n"
                 f"- {image_instruction}\n"
             )
             
@@ -101,7 +101,7 @@ if st.session_state.blog_script and len(st.session_state.blog_script) < 1000:
         try:
             genai.configure(api_key=api_key)
             model = get_available_model()
-            retry_prompt = f"{st.session_state.full_prompt}\n\n방금 요약만 하고 본문을 안 썼어. 요약은 무시하고 '본문'부터 2,000자~2,500자로 길게 다시 써줘."
+            retry_prompt = f"{st.session_state.full_prompt}\n\n방금 요약만 하고 본문을 안 썼어. 요약은 무시하고 '본문'부터 1,500자~2,200자로 길게 다시 써줘."
             with st.spinner("본문을 다시 꽉 채워 생성 중입니다..."):
                 response = model.generate_content(retry_prompt)
                 st.session_state.blog_script = response.text
