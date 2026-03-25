@@ -115,17 +115,17 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
 
                 # ⭐ [추가 수정] 원고 하단에 잔여 조건 문구가 남는 현상 방지
                 blog_script = blog_script.split("[이미지 프롬프트 조건]")[0].strip()
-                
+
                 st.success("🎉 작성이 완료되었습니다!")
                 
                 st.subheader("📋 생성된 블로그 원고")
-                st.text_area("전체 원고", value=blog_script.strip(), height=450)
+                st.text_area("전체 원고", value=blog_script, height=450)
                 
                 st.components.v1.html(f"""
                     <button onclick="copyToClipboard()" style="width:100%; height:40px; background-color:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">📋 원고 전체 복사하기</button>
                     <script>
                     function copyToClipboard() {{
-                        const text = `{blog_script.strip().replace('`', '\\`').replace('$', '\\$')}`;
+                        const text = `{blog_script.replace('`', '\\`').replace('$', '\\$')}`;
                         navigator.clipboard.writeText(text).then(function() {{ alert('원고가 복사되었어요!'); }});
                     }}
                     </script>
@@ -136,9 +136,11 @@ if st.button("✨ 원고 & 이미지 프롬프트 생성"):
                     st.subheader("🖼️ 이미지 생성 가이드")
                     st.info("프롬프트 [복사] 후 [생성] 버튼을 눌러 Bing에 붙여넣으세요!")
                     
-                    prompts = [p.strip() for p in image_prompts_raw.strip().split('\n') if p.strip()]
+                    # '조건' 문구가 포함된 경우를 대비해 필터링
+                    prompts = [p.strip() for p in image_prompts_raw.strip().split('\n') 
+                               if p.strip() and "[이미지 프롬프트 조건]" not in p and "Scene" in p or len(p) > 20]
                     
-                    for i, p in enumerate(prompts):
+                    for i, p in enumerate(prompts[:10]): # 최대 10개까지 표시
                         clean_p = p.split('. ', 1)[-1] if '. ' in p[:5] else p
                         clean_p = clean_p.replace('"', '').replace("'", "")
                         
