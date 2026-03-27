@@ -22,10 +22,10 @@ try:
     
     # 제미나이 설정  
     # v1beta 버전에서는 아래와 같이 'models/'를 붙여야 인식하는 경우가 많습니다.
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    # model = genai.GenerativeModel('models/gemini-1.5-flash')
     
     # 혹시 위 코드로도 안 된다면 아래 줄의 주석을 풀고 시도해 보세요 (가장 범용적인 모델명)
-    # model = genai.GenerativeModel('models/gemini-pro')
+    model = genai.GenerativeModel('models/gemini-pro')
     
 except Exception as e:
     st.error(f"❌ 제미나이 초기 설정 오류: {e}")
