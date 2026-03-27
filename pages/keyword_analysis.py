@@ -32,47 +32,44 @@ def get_blog_count(keyword):
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
-# --- [2. 트렌드 추출] ---
+# --- [2. 트렌드 추출 부분 수정] ---
 def get_official_trends(category_name):
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     clean_cat = category_name.split('(')[0]
     params = {'hintKeywords': clean_cat, 'showDetail': '1', 'biztpId': '15'}
     
-    # 🚫 추천 키워드에서도 이 단어들은 무조건 제외!
+    # 🚫 추천 키워드 공통 제외 (콤마 누락 수정 및 리스트 보강)
     exclude_in_trend = [
-    '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
-    '14k', '18k', '24k', '순금', '금시세' # 금/주얼리 차단
-    '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰' # 쇼핑어 차단
+        '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
+        '14k', '18k', '24k', '순금', '금시세', '귀걸이', '반지', '목걸이', '팔찌',
+        '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰'
     ]
     
     if category_name == "해외여행":
         exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '레지던스', '국내']
+    
+    # ❌ 초등학생 카테고리일 때 쇼핑몰 키워드 차단
+    elif category_name == "초등학생":
+        exclude_in_trend += ['가방', '책가방', '운동화', '신발', '의류', '옷', '선물세트']
 
     try:
         response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
         if response.status_code == 200:
             data = response.json().get('keywordList', [])
-            
-            # 필터링 로직 추가
             filtered_trends = []
             for item in data:
                 kw = item['relKeyword']
-                # 제외 단어가 포함되지 않은 것만 골라담기
                 if not any(word in kw for word in exclude_in_trend):
                     filtered_trends.append(kw)
-                
-                # 버튼은 7개면 충분하니까!
                 if len(filtered_trends) >= 7:
                     break
             return filtered_trends
-    except:
-        pass
+    except: pass
     return [f"{clean_cat} 추천", f"{clean_cat} 가볼만한곳", f"아이랑 {clean_cat}"]
 
-# --- [3. 메인 분석 함수] ---
+# --- [3. 메인 분석 함수 부분 수정] ---
 def analyze_keywords(hint_keyword, category_name):
-    # 입력값 청소
     clean_keyword = hint_keyword.replace(" ", "").split(',')[0]
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
@@ -84,53 +81,48 @@ def analyze_keywords(hint_keyword, category_name):
     data = response.json().get('keywordList', [])
     results = []
     
-    # 🚫 [강력 차단] 모든 카테고리 공통 제외 단어
+    # 🚫 공통 제외 단어 보강
     base_exclude = [
-    '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
-    '14k', '18k', '24k', '순금', '금시세' # 금/주얼리 차단
-    '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰' # 쇼핑어 차단
+        '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
+        '14k', '18k', '24k', '순금', '금시세', '귀걸이', '반지', '목걸이', '팔찌',
+        '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰'
     ]
     
-    # ❌ [해외여행 전용] 국내 숙박 시설 및 관련 단어 완전 차단
-    overseas_exclude = ['펜션', '모텔', '민박', '글램핑', '캠핑장', '풀빌라', '스테이', '파티룸', '국내', '제주도', '강원도']
-
-    # 카테고리에 따른 필터 설정
     if category_name == "해외여행":
-        exclude_words = base_exclude + overseas_exclude
-        min_vol, max_vol = 500, 10000 # 해외는 파이를 키움
+        exclude_words = base_exclude + ['펜션', '모텔', '민박', '글램핑', '캠핑장', '스테이', '파티룸', '국내', '제주도', '강원도']
+        min_vol, max_vol = 500, 10000
         child_words = ['아이', '가족', '어린이', '초등학생', '키즈', '체험', '박물관', '미술관', '동물원', '수족관', '테마파크', '투어', '현지투어', '갈만한', '볼만한', '디즈니', '유니버설']
+    
+    # ❌ 초등학생 카테고리 전용 필터 (교육/체험 위주로 남기기)
+    elif category_name == "초등학생":
+        exclude_words = base_exclude + ['14k', '18k', '24k', '순금', '금시세']
+        min_vol, max_vol = 500, 3000
+        child_words = ['아이', '체험', '교육', '학습', '박물관', '도서', '전시', '과학', '미술', '갈만한', '볼만한', '놀이터', '과학관']
+    
     else:
         exclude_words = base_exclude
         min_vol, max_vol = 500, 3000
         child_words = ['아이', '초등학생', '아들', '자녀', '가족', '키즈', '체험', '박물관', '공원', '랜드', '목장', '카페', '펜션', '숙소', '갈만한', '볼만한']
 
-    for item in data: # data[:150] 대신 전체를 훑어서 거릅니다
+    for item in data:
         kw = item['relKeyword']
-        
-        # ⭐ 핵심: 키워드에 제외 단어가 '단 하나라도' 포함되어 있으면 무조건 즉시 탈락
         if any(word in kw for word in exclude_words):
             continue
         
-        # 검색량 수치 변환
         def parse_val(val):
             if isinstance(val, int): return val
             if isinstance(val, str) and '<' in val: return 5
             return 0
             
         total_vol = parse_val(item['monthlyPcQcCnt']) + parse_val(item['monthlyMobileQcCnt'])
-        
-        # 검색량 구간 필터
         if not (min_vol <= total_vol <= max_vol):
             continue
         
         blog_count = get_blog_count(kw)
         if blog_count == 0: continue
         
-        # 아이 관련 키워드 가중치
         is_child_related = any(word in kw for word in child_words)
         bonus = 1.8 if is_child_related else 1.0
-        
-        # 블루오션 지수 계산
         index = round((total_vol / blog_count * 100) * bonus, 2)
         
         results.append({
@@ -140,12 +132,11 @@ def analyze_keywords(hint_keyword, category_name):
             '블루오션지수': index
         })
         
-        if len(results) >= 15: # 15개 채워지면 중단
+        if len(results) >= 15:
             break
             
     df = pd.DataFrame(results)
     if not df.empty:
-        # 지수 높은 순으로 정렬
         df = df.sort_values(by='블루오션지수', ascending=False).reset_index(drop=True)
         df.index = df.index + 1
     return df
