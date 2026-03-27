@@ -38,12 +38,31 @@ def get_official_trends(category_name):
     uri = '/keywordstool'
     clean_cat = category_name.split('(')[0]
     params = {'hintKeywords': clean_cat, 'showDetail': '1', 'biztpId': '15'}
+    
+    # 🚫 추천 키워드에서도 이 단어들은 무조건 제외!
+    exclude_in_trend = ['아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에']
+    if category_name == "해외여행":
+        exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '풀빌라', '레지던스', '숙박예약']
+
     try:
         response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
         if response.status_code == 200:
             data = response.json().get('keywordList', [])
-            return [item['relKeyword'] for item in data[:7]]
-    except: pass
+            
+            # 필터링 로직 추가
+            filtered_trends = []
+            for item in data:
+                kw = item['relKeyword']
+                # 제외 단어가 포함되지 않은 것만 골라담기
+                if not any(word in kw for word in exclude_in_trend):
+                    filtered_trends.append(kw)
+                
+                # 버튼은 7개면 충분하니까!
+                if len(filtered_trends) >= 7:
+                    break
+            return filtered_trends
+    except:
+        pass
     return [f"{clean_cat} 추천", f"{clean_cat} 가볼만한곳", f"아이랑 {clean_cat}"]
 
 # --- [3. 메인 분석 함수] ---
