@@ -134,4 +134,4 @@ with col2:
                     st.dataframe(df.sort_values('블루오션지수', ascending=False), use_container_width=True)
                     st.balloons()
                 else:
-                    st.error("분석 결과가 없습니다. 네이버 API 키 설정을 다시 확인해주세요.")error("분석 결과가 없습니다. 다시 시도해 주세요.")
+                    st.error("분석 결과가 없습니다. 네이버 API 키 설정을 다시 확인해주세요.")
