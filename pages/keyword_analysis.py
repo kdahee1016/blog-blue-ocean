@@ -66,39 +66,38 @@ def analyze_keywords(hint_keyword):
     progress_bar = st.progress(0)
 
     # 👶 "아이랑" 관련 필수 포함 단어 리스트
-    include_words = ['아이', '아기', '초등학생', '아들', '딸', '가족', '키즈', '체험', '박물관', '공원', '동물원', '자녀']
+    include_words = ['아이', '아기', '초등학생', '아들', '딸', '가족', '키즈', '체험', '박물관', '공원', '동물원', '자녀', '카페']
     
     # 제외하고 싶은 단어 리스트 (여기에 추가하면 절대 안 뜹니다)
     exclude_words = ['아띠', '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
     
-    for i, item in enumerate(data[:100]): # 필터링을 위해 데이터를 좀 더 넉넉히 100개 가져옵니다.
+    # 100개까지 훑어서 알짜를 골라냅니다
+    for i, item in enumerate(data[:100]):
         kw = item['relKeyword']
         
-        # 🚫 필터링 로직: 제외 단어가 포함되어 있으면 이번 루프는 그냥 건너뜁니다.
+        # 1. 제외 단어 필터링
         if any(word in kw for word in exclude_words):
             continue
-
-        # 2. ⭐ 유연한 필터링: 
-        # 검색어(제주도 아이랑)에 들어간 핵심 단어('제주')가 있거나, 아이 관련 단어가 있으면 통과!
-        target_city = hint_keyword.split()[0] if " " in hint_keyword else hint_keyword[:2]
-        
-        is_child_related = any(word in kw for word in include_words)
-        is_location_related = target_city in kw
-        
-        if not (is_child_related or is_location_related):
-            continue
             
-        # 수치 변환 로직
         def parse_val(val):
             if isinstance(val, int): return val
             if isinstance(val, str) and '<' in val: return 5
             return 0
 
         total_vol = parse_val(item['monthlyPcQcCnt']) + parse_val(item['monthlyMobileQcCnt'])
-        blog_count = get_blog_count(kw)
         
-        # 블루오션 지수 계산
-        index = round(total_vol / blog_count * 100, 2) if blog_count > 0 else total_vol
+        # 2. ⭐ 요청하신 검색량 필터링 (500 ~ 3,000 사이만 집중 분석)
+        # 너무 적거나 너무 많은 키워드는 일단 뒤로 보냅니다.
+        if not (500 <= total_vol <= 3000):
+            continue
+
+        blog_count = get_blog_count(kw)
+        if blog_count == 0: continue # 데이터가 없으면 패스
+        
+        # 3. 블루오션 지수 계산 (검색량 / 블로그수)
+        # 아이 관련 단어가 포함되어 있으면 가중치를 주어 상단에 배치
+        bonus = 1.5 if any(word in kw for word in child_place_words) else 1.0
+        index = round((total_vol / blog_count * 100) * bonus, 2)
         
         results.append({
             '키워드': kw, 
@@ -108,14 +107,20 @@ def analyze_keywords(hint_keyword):
             '경쟁정도': item['compIdx']
         })
         
-        # 진행 바 (최대 15개까지만 보여줄 것이므로 적절히 조절)
-        if len(results) >= 15:
+        if len(results) >= 20: # 넉넉하게 20개까지 수집
             break
-            
-        progress_bar.progress(min((i + 1) / 40, 1.0))
+        
+        progress_bar.progress(min((i + 1) / 100, 1.0))
         time.sleep(0.05)
         
-    return pd.DataFrame(results)
+    df = pd.DataFrame(results)
+    
+    # 4. ⭐ 최종 정렬: 블루오션 지수가 높은 순서대로!
+    if not df.empty:
+        df = df.sort_values(by='블루오션지수', ascending=False).reset_index(drop=True)
+        df.index = df.index + 1
+        
+    return df
 
 # --- [3. 화면 구성] ---
 st.set_page_config(page_title="블루오션 키워드 분석", layout="wide")
