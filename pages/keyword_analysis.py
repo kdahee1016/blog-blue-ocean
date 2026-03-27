@@ -145,10 +145,10 @@ with col1:
 
 with col2:
     search_input = st.text_input("분석할 메인 키워드 입력", placeholder="예: 아이랑 중국여행")
-    if st.button("🚀 블루오션 키워드 40개 분석 시작"):
+    if st.button("🚀 블루오션 키워드 20개 분석 시작"):
         if search_input:
             with st.spinner("제미나이 추천 키워드 데이터 수집 중..."):
-                keywords = ask_gemini_keywords(f"'{search_input}' 관련 네이버 블로그 세부 키워드 40개. 콤마로만 구분.")
+                keywords = ask_gemini_keywords(f"'{search_input}' 관련 네이버 블로그 세부 키워드 20개. 콤마로만 구분.")
                 df = analyze_gemini_keywords(keywords)
                 if not df.empty:
                     st.success("분석 완료!")
