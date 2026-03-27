@@ -83,12 +83,22 @@ def analyze_gemini_keywords(keyword_list):
     target_list = keyword_list[:15]
     
     for idx, kw in enumerate(target_list):
-        clean_kw = kw.strip().replace("#", "")
+        # 🔥 [강력 세척] 알파벳, 한글, 숫자, 공백 제외하고 전부 제거
+        import re
+        clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
+        
+        # 만약 세척 후 빈 문자열이면 패스
+        if not clean_kw:
+            continue
+
         status_text.text(f"📊 분석 중 ({idx+1}/{len(target_list)}): {clean_kw}")
         
+        # 네이버 규격: 키워드 사이의 공백은 유지하되 앞뒤는 없어야 함
         params = {'hintKeywords': clean_kw, 'showDetail': '1'}
+        
         try:
             resp = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri), timeout=10)
+            
             if resp.status_code == 200:
                 data = resp.json().get('keywordList', [])
                 if data:
@@ -101,12 +111,14 @@ def analyze_gemini_keywords(keyword_list):
                         index = round((vol / blog * 100) * (1.8 if is_child else 1.0), 2)
                         results.append({'키워드': clean_kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if is_child else ''})
             else:
-                st.warning(f"⚠️ '{clean_kw}' 분석 실패: {resp.text}")
-            time.sleep(0.3)
+                # 에러가 나면 어떤 '값' 때문에 났는지 확인용
+                st.warning(f"⚠️ '{clean_kw}' 요청 실패: {resp.text}")
+                
+            time.sleep(0.4) # 안전하게 조금 더 쉽니다.
         except: continue
+        
     status_text.empty()
     return pd.DataFrame(results)
-
 # --- [4. 메인 화면 구성] ---
 st.title("🤖 제미나이 x 네이버 꿀키워드 분석기")
 
