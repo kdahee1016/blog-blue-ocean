@@ -5,7 +5,6 @@ import hashlib
 import base64
 import requests
 import pandas as pd
-from datetime import datetime
 
 # --- [1. API 설정 및 기본 함수] ---
 try:
@@ -33,29 +32,26 @@ def get_blog_count(keyword):
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
-# --- [2. 실시간 자동완성 및 분석 로직] ---
-def get_naver_autocomplete(keyword):
-    # 브라우저인 척 하기 위한 헤더 추가 (매우 중요!)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.1"
-    }
-    url = f"https://ac.search.naver.com/nx/ac?q={keyword}&con=0&frm=nv&ans=2&r_format=json&r_enc=UTF-8&r_unicode=0&t_k_ticket=0&p_type=mm&ac_q_f_e=1"
+# --- [2. 공식 API를 활용한 트렌드 추출 (자동완성 대체)] ---
+def get_official_trends(category_name):
+    # 검색광고 API를 사용하여 해당 카테고리의 연관 키워드 상위 7개를 가져옵니다.
+    BASE_URL = 'https://api.searchad.naver.com'
+    uri = '/keywordstool'
+    # 카테고리 이름에서 특수문자 제거 (예: 스포츠(야구) -> 스포츠)
+    clean_cat = category_name.split('(')[0]
+    params = {'hintKeywords': clean_cat, 'showDetail': '1', 'biztpId': '15'}
     
     try:
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            result_json = res.json()
-            if 'items' in result_json and result_json['items']:
-                # 리스트가 비어있지 않은지 한 번 더 확인
-                items = result_json['items'][0]
-                return [item[0] for item in items[:7]]
-            else:
-                # 검색어 자체가 너무 희귀해서 자동완성이 없는 경우
-                return [f"{keyword} 추천", f"{keyword} 명소", f"{keyword} 육아"]
-    except Exception as e:
-        st.error(f"연결 오류 발생: {e}")
-    return []
+        response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
+        if response.status_code == 200:
+            data = response.json().get('keywordList', [])
+            # 검색량 순으로 정렬되어 오므로 상위 키워드만 추출
+            return [item['relKeyword'] for item in data[:7]]
+    except:
+        pass
+    return [f"{clean_cat} 추천", f"{clean_cat} 가볼만한곳", f"아이랑 {clean_cat}"]
 
+# --- [3. 메인 분석 함수] ---
 def analyze_keywords(hint_keyword):
     clean_keyword = hint_keyword.replace(" ", "").split(',')[0]
     BASE_URL = 'https://api.searchad.naver.com'
@@ -73,18 +69,27 @@ def analyze_keywords(hint_keyword):
     for i, item in enumerate(data[:150]):
         kw = item['relKeyword']
         if any(word in kw for word in exclude_words): continue
+        
         def parse_val(val):
             if isinstance(val, int): return val
             if isinstance(val, str) and '<' in val: return 5
             return 0
+            
         total_vol = parse_val(item['monthlyPcQcCnt']) + parse_val(item['monthlyMobileQcCnt'])
-        if not (500 <= total_vol <= 3000): continue # 500~3,000 황금구간
+        
+        # 500 ~ 3,000 황금 구간 필터
+        if not (500 <= total_vol <= 3000): continue
+        
         blog_count = get_blog_count(kw)
         if blog_count == 0: continue
+        
+        # 아이랑 관련 가중치 1.8배
         bonus = 1.8 if any(word in kw for word in child_place_words) else 1.0
         index = round((total_vol / blog_count * 100) * bonus, 2)
-        results.append({'키워드': kw, '총검색량': total_vol, '블로그수': blog_count, '블루오션지수': index, '경쟁정도': item['compIdx']})
+        
+        results.append({'키워드': kw, '총검색량': total_vol, '블로그수': blog_count, '블루오션지수': index})
         if len(results) >= 15: break
+        time.sleep(0.05)
     
     df = pd.DataFrame(results)
     if not df.empty:
@@ -92,56 +97,38 @@ def analyze_keywords(hint_keyword):
         df.index = df.index + 1
     return df
 
-# --- [3. 화면 레이아웃] ---
+# --- [4. 화면 구성] ---
 st.set_page_config(page_title="육아 블로거 키워드 비기", layout="wide")
 st.title("🔍 네이버 블로그 키워드 분석기")
 
-# 세션 상태 초기화 (처음 한 번만 실행)
-if 'auto_list' not in st.session_state:
-    st.session_state['auto_list'] = []
-if 'current_kw' not in st.session_state:
-    st.session_state['current_kw'] = "제주도 아이랑"
+if 'current_kw' not in st.session_state: st.session_state['current_kw'] = ""
+if 'trend_list' not in st.session_state: st.session_state['trend_list'] = []
 
 col1, col2 = st.columns([1, 3])
 
 with col1:
-    category = st.selectbox("카테고리 선택", ["국내여행", "육아", "스포츠", "도서"])
+    category = st.selectbox("카테고리 선택", ["국내여행", "육아", "스포츠(야구)", "도서"])
     
-    # 🔄 버튼 클릭 시 바로 리스트를 업데이트하고 화면을 강제로 다시 그립니다.
     if st.button(f"🔄 {category} 트렌드 확인"):
-        with st.spinner("데이터 수집 중..."):
-            new_list = get_naver_autocomplete(category)
-            if new_list:
-                st.session_state['auto_list'] = new_list
-                st.rerun() # ⭐ 핵심: 화면을 즉시 새로고침해서 리스트를 보여줌
-            else:
-                st.warning("트렌드 데이터를 가져오지 못했습니다.")
+        with st.spinner("공식 API 데이터 수집 중..."):
+            st.session_state['trend_list'] = get_official_trends(category)
+            st.rerun()
 
     st.divider()
-    
-    # 리스트가 있을 때만 서브헤더와 버튼 표시
-    if st.session_state['auto_list']:
-        st.subheader(f"✨ {category} 인기어")
-        for idx, ak in enumerate(st.session_state['auto_list']):
-            # 각 버튼에 고유한 키(key)를 부여하여 충돌 방지
-            if st.button(f"# {ak}", key=f"auto_btn_{idx}_{ak}"):
-                st.session_state['current_kw'] = ak
-                # 분석을 시작하도록 트리거 설정 후 새로고침
-                st.session_state['trigger_analysis'] = True
+    if st.session_state['trend_list']:
+        st.subheader("✨ 연관 추천 키워드")
+        for idx, tk in enumerate(st.session_state['trend_list']):
+            if st.button(f"# {tk}", key=f"trend_{idx}"):
+                st.session_state['current_kw'] = tk
+                st.session_state['do_analyze'] = True
                 st.rerun()
 
 with col2:
-    # 세션 상태에 저장된 키워드를 입력창에 표시
-    hint_kw = st.text_input("분석할 키워드", value=st.session_state['current_kw'])
+    hint_kw = st.text_input("분석 키워드 입력", value=st.session_state['current_kw'])
     
-    # 분석 실행 조건: 버튼 클릭 OR 자동완성 키워드 클릭
-    run_analysis = st.button("🚀 데이터 분석 시작")
-    
-    if run_analysis or st.session_state.get('trigger_analysis', False):
-        # 트리거 초기화
-        if 'trigger_analysis' in st.session_state:
-            del st.session_state['trigger_analysis']
-            
+    if st.button("🚀 데이터 분석 시작") or st.session_state.get('do_analyze', False):
+        if 'do_analyze' in st.session_state: del st.session_state['do_analyze']
+        
         with st.spinner(f"'{hint_kw}' 꿀 키워드 발굴 중..."):
             df = analyze_keywords(hint_kw)
             if df is not None and not df.empty:
@@ -149,4 +136,4 @@ with col2:
                 st.dataframe(df, use_container_width=True)
                 st.balloons()
             else:
-                st.warning("500~3,000 구간의 키워드가 없네요. 범위를 넓혀보세요!")
+                st.warning("500~3,000 구간의 키워드가 없네요. 다른 키워드를 눌러보세요!")
