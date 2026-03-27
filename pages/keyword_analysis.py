@@ -22,9 +22,15 @@ try:
     
     # 제미나이 설정
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # 모델 이름을 'gemini-1.5-flash-latest'로 변경하고 
+    # 앞에 'models/'를 붙이지 않고 선언해 보세요.
+    model = genai.GenerativeModel('gemini-1.5-flash-latest') 
+    
+    # (선택 사항) 만약 위 코드로도 안 된다면 아래 주석을 풀고 시도해 보세요.
+    # model = genai.GenerativeModel('models/gemini-1.5-flash')
 except Exception as e:
-    st.error(f"❌ 네이버 API 키 설정 오류: {e}")
+    st.error(f"❌ 제미나이 설정 오류: {e}")
     st.stop()
 
 def get_header(method, uri):
