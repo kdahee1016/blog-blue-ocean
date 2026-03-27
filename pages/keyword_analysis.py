@@ -14,21 +14,29 @@ import google.generativeai as genai
 # `st.info` 스타일을 타겟팅합니다.
 font_css = """
 <style>
-/* `st.info` 스타일 타겟팅 */
-div[data-testid="stInfo"] {
-    padding: 0.5rem 1rem; /* 안쪽 여백 줄이기 */
-    border-radius: 0.5rem; /* 모서리 둥글게 */
-    font-size: 1rem !important; /* ⭐ 글씨 크기를 1rem(블로그 본문 크기)으로 줄이기 */
-    font-weight: normal !important; /* ⭐ 글씨 두께를 보통으로 */
-    margin-bottom: 0.5rem; /* 아래쪽 여백 */
+/* 1. st.info 박스 안의 모든 텍스트 강제 축소 */
+[data-testid="stInfo"] * {
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+    font-weight: 500 !important;
 }
 
-/* st.info 내부 폰트 스타일 타겟팅 */
-div[data-testid="stInfo"] .stMarkdown {
-    font-size: 1rem !important;
+/* 2. 박스 자체의 불필요한 여백 제거 */
+[data-testid="stInfo"] {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    min-height: 30px !important;
+    margin-bottom: 5px !important;
+}
+
+/* 3. 혹시 모를 제목(h1~h6) 태그 크기도 강제 조정 */
+[data-testid="stInfo"] h1, [data-testid="stInfo"] h2, [data-testid="stInfo"] h3 {
+    font-size: 14px !important;
+    margin: 0 !important;
 }
 </style>
 """
+
 
 
 if "GEMINI_API_KEY" not in st.secrets:
