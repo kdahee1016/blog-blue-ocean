@@ -52,7 +52,7 @@ def get_official_trends(category_name):
     return [f"{clean_cat} 추천", f"{clean_cat} 가볼만한곳", f"아이랑 {clean_cat}"]
 
 # --- [3. 메인 분석 함수] ---
-def analyze_keywords(hint_keyword):
+def analyze_keywords(hint_keyword, category_name):
     clean_keyword = hint_keyword.replace(" ", "").split(',')[0]
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
@@ -63,12 +63,27 @@ def analyze_keywords(hint_keyword):
 
     data = response.json().get('keywordList', [])
     results = []
+    # 🚫 전 카테고리 공통 제외 단어
     exclude_words = ['아기띠', '아띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
-    child_place_words = ['아이', '초등학생', '아들', '자녀', '가족', '키즈', '체험', '박물관', '공원', '랜드', '목장', '카페', '펜션', '숙소', '갈만한', '볼만한']
+    
+    # ❌ 해외여행일 때만 추가로 제외할 단어 (국내 전용 숙박 시설)
+    if category_name == "해외여행":
+        exclude_words += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '풀빌라']
+
+    # 👶 아이랑 관련 장소 (카테고리별 맞춤형)
+    if category_name == "해외여행":
+        # 해외여행은 '박물관', '미술관', '디즈니', '투어' 등이 더 중요함
+        child_place_words = ['아이', '가족', '어린이', '초등학생', '키즈', '체험', '박물관', '미술관', '동물원', '수족관', '테마파크', '투어', '현지투어', '갈만한', '볼만한']
+    else:
+        child_place_words = ['아이', '어린이', '초등학생', '아들', '자녀', '가족', '키즈', '체험', '박물관', '공원', '랜드', '목장', '카페', '펜션', '숙소', '갈만한', '볼만한']
+
 
     for i, item in enumerate(data[:150]):
         kw = item['relKeyword']
-        if any(word in kw for word in exclude_words): continue
+        
+        # 1. 제외 단어 필터링 (이제 펜션, 모텔이 해외여행에서 걸러집니다)
+        if any(word in kw for word in exclude_words):
+            continue
         
         def parse_val(val):
             if isinstance(val, int): return val
