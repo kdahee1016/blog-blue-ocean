@@ -107,7 +107,7 @@ if 'trend_list' not in st.session_state: st.session_state['trend_list'] = []
 col1, col2 = st.columns([1, 3])
 
 with col1:
-    category = st.selectbox("카테고리 선택", ["국내여행", "육아", "스포츠", "야구", "도서", "영화"])
+    category = st.selectbox("카테고리 선택", ["국내여행", "해외여행", "스포츠", "야구", "도서", "영화", "초등학생"])
     
     if st.button(f"🔄 {category} 트렌드 확인"):
         with st.spinner("공식 API 데이터 수집 중..."):
