@@ -35,12 +35,25 @@ def get_blog_count(keyword):
 
 # --- [2. 실시간 자동완성 및 분석 로직] ---
 def get_naver_autocomplete(keyword):
+    # 브라우저인 척 하기 위한 헤더 추가 (매우 중요!)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.1"
+    }
     url = f"https://ac.search.naver.com/nx/ac?q={keyword}&con=0&frm=nv&ans=2&r_format=json&r_enc=UTF-8&r_unicode=0&t_k_ticket=0&p_type=mm&ac_q_f_e=1"
+    
     try:
-        res = requests.get(url)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
-            return [item[0] for item in res.json()['items'][0][:7]]
-    except: return []
+            result_json = res.json()
+            if 'items' in result_json and result_json['items']:
+                # 리스트가 비어있지 않은지 한 번 더 확인
+                items = result_json['items'][0]
+                return [item[0] for item in items[:7]]
+            else:
+                # 검색어 자체가 너무 희귀해서 자동완성이 없는 경우
+                return [f"{keyword} 추천", f"{keyword} 명소", f"{keyword} 육아"]
+    except Exception as e:
+        st.error(f"연결 오류 발생: {e}")
     return []
 
 def analyze_keywords(hint_keyword):
