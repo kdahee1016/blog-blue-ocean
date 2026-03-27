@@ -59,8 +59,17 @@ def analyze_keywords(hint_keyword):
     results = []
     progress_bar = st.progress(0)
     
-    for i, item in enumerate(data[:15]):
+    # 제외하고 싶은 단어 리스트 (여기에 추가하면 절대 안 뜹니다)
+    exclude_words = ['아띠', '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
+
+    for i, item in enumerate(data[:40]): # 필터링을 위해 데이터를 좀 더 넉넉히 40개 가져옵니다.
         kw = item['relKeyword']
+        
+        # 🚫 필터링 로직: 제외 단어가 포함되어 있으면 이번 루프는 그냥 건너뜁니다.
+        if any(word in kw for word in exclude_words):
+            continue
+            
+        # 수치 변환 로직
         def parse_val(val):
             if isinstance(val, int): return val
             if isinstance(val, str) and '<' in val: return 5
@@ -68,11 +77,25 @@ def analyze_keywords(hint_keyword):
 
         total_vol = parse_val(item['monthlyPcQcCnt']) + parse_val(item['monthlyMobileQcCnt'])
         blog_count = get_blog_count(kw)
+        
+        # 블루오션 지수 계산
         index = round(total_vol / blog_count * 100, 2) if blog_count > 0 else total_vol
         
-        results.append({'키워드': kw, '총검색량': total_vol, '블로그수': blog_count, '블루오션지수': index, '경쟁정도': item['compIdx']})
-        progress_bar.progress((i + 1) / 15)
+        results.append({
+            '키워드': kw, 
+            '총검색량': total_vol, 
+            '블로그수': blog_count, 
+            '블루오션지수': index, 
+            '경쟁정도': item['compIdx']
+        })
+        
+        # 진행 바 (최대 15개까지만 보여줄 것이므로 적절히 조절)
+        if len(results) >= 15:
+            break
+            
+        progress_bar.progress(min((i + 1) / 40, 1.0))
         time.sleep(0.05)
+        
     return pd.DataFrame(results)
 
 # --- [3. 화면 구성] ---
