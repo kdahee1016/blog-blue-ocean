@@ -73,31 +73,53 @@ def analyze_gemini_keywords(keyword_list):
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     results = []
-    # 👶 육아/역사 가중치 단어
+    
+    # 👶 가중치 단어 (10살 아들 맞춤형)
     child_words = ['아이', '가족', '초등학생', '체험', '교육', '박물관', '미술', '과학', '갈만한', '볼만한']
     
     status_text = st.empty()
-    for idx, kw in enumerate(keyword_list[:40]):
-        status_text.text(f"📊 분석 중 ({idx+1}/40): {kw}")
-        params = {'hintKeywords': kw, 'showDetail': '1', 'biztpId': '15'}
+    # 💡 [변경] 너무 많으면 터지니까 알짜배기 20개만 집중 분석합니다.
+    target_list = keyword_list[:20] 
+    
+    for idx, kw in enumerate(target_list):
+        status_text.text(f"📊 분석 중 ({idx+1}/{len(target_list)}): {kw}")
+        
+        # 키워드에서 공백 제거 등 정제 (네이버 API 인식률 향상)
+        clean_kw = kw.strip().replace("#", "")
+        params = {'hintKeywords': clean_kw, 'showDetail': '1', 'biztpId': '15'}
+        
         try:
-            resp = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
+            resp = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri), timeout=10)
+            
             if resp.status_code == 200:
                 data = resp.json().get('keywordList', [])
                 if data:
-                    item = data[0]
+                    # 입력한 키워드와 가장 유사한 데이터 찾기
+                    item = data[0] 
                     def parse(v):
                         if isinstance(v, int): return v
                         return 5 if isinstance(v, str) and '<' in v else 0
+                    
                     vol = parse(item['monthlyPcQcCnt']) + parse(item['monthlyMobileQcCnt'])
-                    blog = get_blog_count(kw)
+                    blog = get_blog_count(clean_kw)
+                    
                     if blog > 0:
-                        is_child = any(cw in kw for cw in child_words)
+                        is_child = any(cw in clean_kw for cw in child_words)
                         bonus = 1.8 if is_child else 1.0
                         index = round((vol / blog * 100) * bonus, 2)
-                        results.append({'키워드': kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if is_child else ''})
-            time.sleep(0.08)
-        except: continue
+                        
+                        results.append({
+                            '키워드': clean_kw, '총검색량': vol, '블로그수': blog, 
+                            '블루오션지수': index, '추천': '👶' if is_child else ''
+                        })
+            
+            # 💡 [변경] 네이버 차단을 피하기 위해 쉬는 시간을 살짝 늘립니다.
+            time.sleep(0.2) 
+            
+        except Exception as e:
+            print(f"Error analyzing {kw}: {e}")
+            continue
+            
     status_text.empty()
     return pd.DataFrame(results)
 
