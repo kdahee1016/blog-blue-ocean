@@ -65,16 +65,21 @@ def analyze_keywords(hint_keyword):
     # 제외하고 싶은 단어 리스트 (여기에 추가하면 절대 안 뜹니다)
     exclude_words = ['아띠', '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
     
-    for i, item in enumerate(data[:40]): # 필터링을 위해 데이터를 좀 더 넉넉히 40개 가져옵니다.
+    for i, item in enumerate(data[:100]): # 필터링을 위해 데이터를 좀 더 넉넉히 100개 가져옵니다.
         kw = item['relKeyword']
         
         # 🚫 필터링 로직: 제외 단어가 포함되어 있으면 이번 루프는 그냥 건너뜁니다.
         if any(word in kw for word in exclude_words):
             continue
 
-        # 2. ⭐ 핵심: 포함 단어 필터 (아이랑 관련 없는 일반 키워드 차단)
-        # 키워드에 '아이', '가족', '키즈' 등이 하나라도 들어있어야만 합격!
-        if not any(word in kw for word in include_words):
+        # 2. ⭐ 유연한 필터링: 
+        # 검색어(제주도 아이랑)에 들어간 핵심 단어('제주')가 있거나, 아이 관련 단어가 있으면 통과!
+        target_city = hint_keyword.split()[0] if " " in hint_keyword else hint_keyword[:2]
+        
+        is_child_related = any(word in kw for word in include_words)
+        is_location_related = target_city in kw
+        
+        if not (is_child_related or is_location_related):
             continue
             
         # 수치 변환 로직
