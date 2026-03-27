@@ -20,13 +20,31 @@ try:
     SEARCH_CLIENT_ID = st.secrets["SEARCH_CLIENT_ID"]
     SEARCH_CLIENT_SECRET = st.secrets["SEARCH_CLIENT_SECRET"]
     
-    # 제미나이 설정  
-    # v1beta 버전에서는 아래와 같이 'models/'를 붙여야 인식하는 경우가 많습니다.
-    # model = genai.GenerativeModel('models/gemini-1.5-flash')
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
-    # 혹시 위 코드로도 안 된다면 아래 줄의 주석을 풀고 시도해 보세요 (가장 범용적인 모델명)
-    model = genai.GenerativeModel('models/gemini-pro')
+    # 1. 현재 사용 가능한 모델 목록을 직접 불러옵니다.
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     
+    # 2. 가장 성능 좋은 모델 순서대로 자동 선택 (우선순위 부여)
+    target_models = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro']
+    selected_model_name = None
+    
+    for target in target_models:
+        if target in available_models:
+            selected_model_name = target
+            break
+            
+    # 3. 만약 위 모델들이 없으면 목록 중 첫 번째 모델이라도 강제로 잡습니다.
+    if not selected_model_name and available_models:
+        selected_model_name = available_models[0]
+        
+    if selected_model_name:
+        model = genai.GenerativeModel(selected_model_name)
+        # st.success(f"✅ 모델 연결 성공: {selected_model_name}") # 연결 확인용 (테스트 후 주석 처리)
+    else:
+        st.error("❌ 사용 가능한 제미나이 모델을 찾을 수 없습니다. API 키 권한을 확인해 주세요.")
+        st.stop()
+
 except Exception as e:
     st.error(f"❌ 제미나이 초기 설정 오류: {e}")
     st.stop()
