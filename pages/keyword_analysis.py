@@ -34,8 +34,14 @@ def get_blog_count(keyword):
     except: return 0
 
 def analyze_keywords(hint_keyword):
-    # 띄어쓰기를 쉼표로 치환
-    clean_keyword = hint_keyword.replace(" ", ",")
+    # '제주도 아이랑' 입력 시 -> '제주도 아이랑 가볼만한곳', '제주도 키즈펜션' 등으로 자동 확장
+    expanded_keywords = [
+        f"{hint_keyword} 가볼만한곳",
+        f"{hint_keyword} 체험",
+        f"{hint_keyword} 숙소",
+        f"제주도 키즈카페" # 예시
+    ]
+    clean_keyword = ",".join(expanded_keywords)
     
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
