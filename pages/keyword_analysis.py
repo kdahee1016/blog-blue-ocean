@@ -88,4 +88,38 @@ def analyze_keywords(hint_keyword):
         
     df = pd.DataFrame(results)
     if not df.empty:
-        df = df.sort_values(by='블루오션지수', ascending=
+        df = df.sort_values(by='블루오션지수', ascending=False).reset_index(drop=True)
+        df.index = df.index + 1
+    return df
+
+# --- [3. 화면 레이아웃] ---
+st.set_page_config(page_title="육아 블로거 키워드 비기", layout="wide")
+st.title("🔍 네이버 블로그 키워드 분석기")
+
+# 핫 키워드 데이터 (3월 말 기준 수동 업데이트 - 추후 자동화 가능)
+hot_keywords = ["제주도 유채꽃", "딸기체험 농장", "서울근교 피크닉", "아이랑 벚꽃", "키즈펜션 추천"]
+
+col1, col2 = st.columns([1, 3])
+
+with col1:
+    st.subheader("🔥 3일간 핫 키워드")
+    selected_hot = ""
+    for hk in hot_keywords:
+        if st.button(f"# {hk}"):
+            selected_hot = hk
+    
+    st.divider()
+    category = st.selectbox("카테고리", ["국내여행", "육아", "스포츠", "도서"])
+
+with col2:
+    hint_kw = st.text_input("분석할 키워드를 입력하세요 (예: 제주도 아이랑)", value=selected_hot if selected_hot else "제주도 아이랑")
+    
+    if st.button("🚀 데이터 분석 시작"):
+        with st.spinner("알짜 키워드를 발굴 중입니다..."):
+            df = analyze_keywords(hint_kw)
+            if df is not None and not df.empty:
+                st.success(f"'{hint_kw}' 관련 500~3,000 검색량 구간 블루오션 결과입니다!")
+                st.dataframe(df, use_container_width=True)
+                st.balloons()
+            else:
+                st.warning("조건에 맞는 블루오션 키워드를 찾지 못했습니다. 키워드를 조금 더 넓게 입력해보세요!")
