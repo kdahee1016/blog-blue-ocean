@@ -33,7 +33,7 @@ def get_blog_count(keyword):
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
-    def analyze_keywords(hint_keyword):
+def analyze_keywords(hint_keyword):
     # 띄어쓰기를 쉼표로 치환
     clean_keyword = hint_keyword.replace(" ", ",")
     
