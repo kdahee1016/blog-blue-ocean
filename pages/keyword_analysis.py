@@ -58,14 +58,13 @@ def analyze_gemini_keywords(keyword_list):
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     results = []
-    # 👶 육아/역사 가중치 단어 (10살 아드님 맞춤형)
     child_words = ['아이', '가족', '초등학생', '체험', '교육', '박물관', '미술', '과학', '갈만한', '볼만한']
     
     status_text = st.empty()
-    target_list = keyword_list[:15] # 안정성을 위해 15개 집중 분석
+    target_list = keyword_list[:10] # 일단 10개만 테스트
     
     for idx, kw in enumerate(target_list):
-        # 🔥 [핵심 수정] 한글, 영어, 숫자, 공백을 제외한 모든 특수문자(., -, # 등) 제거
+        import re
         clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
         if not clean_kw: continue
 
@@ -74,21 +73,31 @@ def analyze_gemini_keywords(keyword_list):
         
         try:
             resp = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri), timeout=10)
+            
             if resp.status_code == 200:
                 data = resp.json().get('keywordList', [])
                 if data:
                     item = data[0]
+                    # 검색량이 너무 적으면 0으로 나올 수 있습니다.
                     p = lambda v: v if isinstance(v, int) else (5 if isinstance(v, str) and '<' in v else 0)
                     vol = p(item['monthlyPcQcCnt']) + p(item['monthlyMobileQcCnt'])
                     blog = get_blog_count(clean_kw)
-                    if blog > 0:
-                        is_child = any(cw in clean_kw for cw in child_words)
-                        index = round((vol / blog * 100) * (1.8 if is_child else 1.0), 2)
-                        results.append({'키워드': clean_kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if is_child else ''})
+                    
+                    # 블로그 수가 0이면 지수 계산이 안 되므로 1로 치환하거나 스킵
+                    if blog >= 0:
+                        bonus = 1.8 if any(w in clean_kw for w in ['아이', '가족', '체험', '역사']) else 1.0
+                        index = round((vol / (blog if blog > 0 else 1) * 100) * bonus, 2)
+                        results.append({'키워드': clean_kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if bonus > 1.0 else ''})
             else:
-                st.warning(f"⚠️ '{clean_kw}' 분석 건너뜀 (응답: {resp.status_code})")
-            time.sleep(0.4)
-        except: continue
+                # 🚨 [중요] 여기가 핵심입니다. 실패 원인을 화면에 직접 보여줍니다.
+                st.error(f"❌ 네이버 광고 API 오류 ({clean_kw}): {resp.status_code}")
+                st.code(resp.text) # 이 코드를 저에게 복사해서 알려주세요!
+                
+            time.sleep(0.5)
+        except Exception as e:
+            st.error(f"⚠️ 시스템 에러: {e}")
+            continue
+            
     status_text.empty()
     return pd.DataFrame(results)
 
