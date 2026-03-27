@@ -106,10 +106,18 @@ if st.button("데이터 분석 시작"):
         
         if df is not None and not df.empty:
             st.success("데이터 분석 완료!")
-            # 지수 높은 순으로 정렬해서 보여주기
+            
+            # 1. 블루오션 지수 높은 순으로 정렬
             df = df.sort_values(by='블루오션지수', ascending=False)
+            
+            # 2. 뒤죽박죽인 인덱스 번호를 깔끔하게 새로 매기기
+            df = df.reset_index(drop=True)
+            df.index = df.index + 1  # 0번이 아니라 1번부터 시작하게 함
+            
+            # 3. 표 출력 (인덱스 컬럼 이름을 '순위'로 변경해서 보여주면 더 보기 좋습니다)
+            st.subheader(f"📊 '{hint_kw}' 관련 블루오션 키워드 순위")
             st.dataframe(df, use_container_width=True)
             
-            st.balloons() # 축하 풍선!
+            st.balloons()
         else:
             st.warning("결과가 없습니다. 키워드를 바꿔보세요.")
