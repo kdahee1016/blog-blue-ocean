@@ -10,25 +10,6 @@ import google.generativeai as genai
 # --- [1. API 설정 및 기본 함수] ---
 # 에러를 구체적으로 보기 위해 try-except 범위를 좁혔습니다.
 
-# `st.info` 스타일을 타겟팅합니다.
-font_css = """
-<style>
-/* `st.info` 스타일 타겟팅 */
-div[data-testid="stInfo"] {
-    padding: 0.5rem 1rem; /* 안쪽 여백 줄이기 */
-    border-radius: 0.5rem; /* 모서리 둥글게 */
-    font-size: 1rem !important; /* ⭐ 글씨 크기를 1rem(블로그 본문 크기)으로 줄이기 */
-    font-weight: normal !important; /* ⭐ 글씨 두께를 보통으로 */
-    margin-bottom: 0.5rem; /* 아래쪽 여백 */
-}
-
-/* st.info 내부 폰트 스타일 타겟팅 */
-div[data-testid="stInfo"] .stMarkdown {
-    font-size: 1rem !important;
-}
-</style>
-"""
-
 if "GEMINI_API_KEY" not in st.secrets:
     st.error("❌ secrets.toml 파일에 'GEMINI_API_KEY'가 없습니다! 확인해 주세요.")
     st.stop()
@@ -83,6 +64,25 @@ def get_blog_count(keyword):
         res = requests.get(url, headers=headers)
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
+
+# `st.info` 스타일을 타겟팅합니다.
+font_css = """
+<style>
+/* `st.info` 스타일 타겟팅 */
+div[data-testid="stInfo"] {
+    padding: 0.5rem 1rem; /* 안쪽 여백 줄이기 */
+    border-radius: 0.5rem; /* 모서리 둥글게 */
+    font-size: 1rem !important; /* ⭐ 글씨 크기를 1rem(블로그 본문 크기)으로 줄이기 */
+    font-weight: normal !important; /* ⭐ 글씨 두께를 보통으로 */
+    margin-bottom: 0.5rem; /* 아래쪽 여백 */
+}
+
+/* st.info 내부 폰트 스타일 타겟팅 */
+div[data-testid="stInfo"] .stMarkdown {
+    font-size: 1rem !important;
+}
+</style>
+"""
 
 # --- [2. 제미나이 키워드 생성 함수 - 에러 출력 강화] ---
 def ask_gemini_keywords(prompt):
