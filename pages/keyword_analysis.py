@@ -154,7 +154,7 @@ def analyze_gemini_keywords(keyword_list, category_name):
 st.set_page_config(page_title="꿀키워드 뽑아내기", layout="wide")
 
 # CSS 주입!
-st.markdown(font_css, unsafe_allow_allow=True)
+st.markdown(font_css, unsafe_allow_html=True)
 
 st.title("🤖 제미나이 x 네이버 키워드 탐색기")
 
