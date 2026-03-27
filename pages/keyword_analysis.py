@@ -42,9 +42,28 @@ def get_official_trends(category_name):
     # 🚫 추천 키워드 공통 제외 (콤마 누락 수정 및 리스트 보강)
     exclude_in_trend = [
         '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
-        '14k', '18k', '24k', '순금', '금시세', '귀걸이', '반지', '목걸이', '팔찌',
-        '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰'
+        '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
+        '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰', '쇼핑몰', '20대', '30대', '여성'
     ]
+
+    # (API 호출 후 data를 가져온 뒤...)
+    filtered_trends = []
+    for item in data:
+        kw = item['relKeyword'].replace(" ", "").lower() # 공백 제거 + 소문자 변환
+        
+        # 제외 단어가 하나라도 '포함'되어 있는지 체크
+        is_bad = False
+        for bad_word in exclude_in_trend:
+            if bad_word in kw:
+                is_bad = True
+                break
+        
+        if not is_bad:
+            filtered_trends.append(item['relKeyword']) # 원본 단어 추가
+            
+        if len(filtered_trends) >= 7:
+            break
+    return filtered_trends
     
     if category_name == "해외여행":
         exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '레지던스', '국내']
@@ -83,9 +102,10 @@ def analyze_keywords(hint_keyword, category_name):
     
     # 🚫 공통 제외 단어 보강
     base_exclude = [
-        '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
-        '14k', '18k', '24k', '순금', '금시세', '귀걸이', '반지', '목걸이', '팔찌',
-        '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰'
+    '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
+    '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
+    '쇼핑몰', '드레스룸', '캐리어', '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰',
+    '20대', '30대', '40대', '여성', '남성' # 연령대 쇼핑 키워드 차단
     ]
     
     if category_name == "해외여행":
