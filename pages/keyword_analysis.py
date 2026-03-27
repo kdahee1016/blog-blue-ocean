@@ -83,41 +83,57 @@ def analyze_keywords(hint_keyword):
 st.set_page_config(page_title="육아 블로거 키워드 비기", layout="wide")
 st.title("🔍 네이버 블로그 키워드 분석기")
 
-# 상태 초기화
-if 'current_kw' not in st.session_state: st.session_state['current_kw'] = "제주도 아이랑"
-if 'auto_list' not in st.session_state: st.session_state['auto_list'] = []
+# 세션 상태 초기화 (처음 한 번만 실행)
+if 'auto_list' not in st.session_state:
+    st.session_state['auto_list'] = []
+if 'current_kw' not in st.session_state:
+    st.session_state['current_kw'] = "제주도 아이랑"
 
 col1, col2 = st.columns([1, 3])
 
 with col1:
     category = st.selectbox("카테고리 선택", ["국내여행", "육아", "스포츠", "도서"])
-    if st.button(f"🔄 {category} 실시간 트렌드 확인"):
-        st.session_state['auto_list'] = get_naver_autocomplete(category)
     
+    # 🔄 버튼 클릭 시 바로 리스트를 업데이트하고 화면을 강제로 다시 그립니다.
+    if st.button(f"🔄 {category} 트렌드 확인"):
+        with st.spinner("데이터 수집 중..."):
+            new_list = get_naver_autocomplete(category)
+            if new_list:
+                st.session_state['auto_list'] = new_list
+                st.rerun() # ⭐ 핵심: 화면을 즉시 새로고침해서 리스트를 보여줌
+            else:
+                st.warning("트렌드 데이터를 가져오지 못했습니다.")
+
     st.divider()
+    
+    # 리스트가 있을 때만 서브헤더와 버튼 표시
     if st.session_state['auto_list']:
-        st.subheader(f"✨ 지금 뜨는 {category}")
-        for ak in st.session_state['auto_list']:
-            # 버튼 클릭 시 해당 키워드를 입력창에 넣고 '즉시 분석' 트리거 설정
-            if st.button(f"# {ak}", key=f"auto_{ak}"):
+        st.subheader(f"✨ {category} 인기어")
+        for idx, ak in enumerate(st.session_state['auto_list']):
+            # 각 버튼에 고유한 키(key)를 부여하여 충돌 방지
+            if st.button(f"# {ak}", key=f"auto_btn_{idx}_{ak}"):
                 st.session_state['current_kw'] = ak
-                st.session_state['run_analysis'] = True
+                # 분석을 시작하도록 트리거 설정 후 새로고침
+                st.session_state['trigger_analysis'] = True
+                st.rerun()
 
 with col2:
-    hint_kw = st.text_input("분석할 키워드를 입력하세요", value=st.session_state['current_kw'])
+    # 세션 상태에 저장된 키워드를 입력창에 표시
+    hint_kw = st.text_input("분석할 키워드", value=st.session_state['current_kw'])
     
-    # 일반 분석 버튼 또는 자동완성 클릭 시 동작
-    run_btn = st.button("🚀 데이터 분석 시작")
+    # 분석 실행 조건: 버튼 클릭 OR 자동완성 키워드 클릭
+    run_analysis = st.button("🚀 데이터 분석 시작")
     
-    if run_btn or st.session_state.get('run_analysis', False):
-        # 자동완성 클릭으로 들어왔다면 플래그 초기화
-        st.session_state['run_analysis'] = False
-        
+    if run_analysis or st.session_state.get('trigger_analysis', False):
+        # 트리거 초기화
+        if 'trigger_analysis' in st.session_state:
+            del st.session_state['trigger_analysis']
+            
         with st.spinner(f"'{hint_kw}' 꿀 키워드 발굴 중..."):
             df = analyze_keywords(hint_kw)
             if df is not None and not df.empty:
-                st.success(f"'{hint_kw}' 기반 블루오션 결과입니다!")
+                st.success(f"'{hint_kw}' 분석 완료!")
                 st.dataframe(df, use_container_width=True)
                 st.balloons()
             else:
-                st.warning("조건(500~3,000회)에 맞는 결과가 없네요. 키워드를 조금 더 넓게 입력해보세요!")
+                st.warning("500~3,000 구간의 키워드가 없네요. 범위를 넓혀보세요!")
