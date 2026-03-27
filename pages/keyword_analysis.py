@@ -32,43 +32,27 @@ def get_blog_count(keyword):
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
-# --- [2. 트렌드 추출 부분 수정] ---
+# --- [2. 트렌드 추출 (왼쪽 버튼)] ---
 def get_official_trends(category_name):
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     clean_cat = category_name.split('(')[0]
     params = {'hintKeywords': clean_cat, 'showDetail': '1', 'biztpId': '15'}
     
-    # 🚫 추천 키워드 공통 제외 (콤마 누락 수정 및 리스트 보강)
+    # 변수 초기화 (Error 방지)
+    data = []
+    filtered_trends = []
+
+    # 🚫 공통 제외 키워드 (귀걸이, 반지, 목걸이 제외됨)
     exclude_in_trend = [
         '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
         '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
         '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰', '쇼핑몰', '20대', '30대', '여성'
     ]
-
-    # (API 호출 후 data를 가져온 뒤...)
-    filtered_trends = []
-    for item in data:
-        kw = item['relKeyword'].replace(" ", "").lower() # 공백 제거 + 소문자 변환
-        
-        # 제외 단어가 하나라도 '포함'되어 있는지 체크
-        is_bad = False
-        for bad_word in exclude_in_trend:
-            if bad_word in kw:
-                is_bad = True
-                break
-        
-        if not is_bad:
-            filtered_trends.append(item['relKeyword']) # 원본 단어 추가
-            
-        if len(filtered_trends) >= 7:
-            break
-    return filtered_trends
     
     if category_name == "해외여행":
+        # '풀빌라'는 검색량이 많아 제외에서 뺌
         exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '레지던스', '국내']
-    
-    # ❌ 초등학생 카테고리일 때 쇼핑몰 키워드 차단
     elif category_name == "초등학생":
         exclude_in_trend += ['가방', '책가방', '운동화', '신발', '의류', '옷', '선물세트']
 
@@ -76,18 +60,19 @@ def get_official_trends(category_name):
         response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
         if response.status_code == 200:
             data = response.json().get('keywordList', [])
-            filtered_trends = []
+            
             for item in data:
-                kw = item['relKeyword']
+                kw = item['relKeyword'].replace(" ", "").lower()
+                # 필터링 로직
                 if not any(word in kw for word in exclude_in_trend):
-                    filtered_trends.append(kw)
+                    filtered_trends.append(item['relKeyword'])
                 if len(filtered_trends) >= 7:
                     break
             return filtered_trends
     except: pass
     return [f"{clean_cat} 추천", f"{clean_cat} 가볼만한곳", f"아이랑 {clean_cat}"]
 
-# --- [3. 메인 분석 함수 부분 수정] ---
+# --- [3. 메인 분석 함수 (오른쪽 결과)] ---
 def analyze_keywords(hint_keyword, category_name):
     clean_keyword = hint_keyword.replace(" ", "").split(',')[0]
     BASE_URL = 'https://api.searchad.naver.com'
@@ -100,24 +85,25 @@ def analyze_keywords(hint_keyword, category_name):
     data = response.json().get('keywordList', [])
     results = []
     
-    # 🚫 공통 제외 단어 보강
+    # 🚫 공통 제외 단어 (귀걸이, 반지, 목걸이 허용)
     base_exclude = [
-    '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
-    '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
-    '쇼핑몰', '드레스룸', '캐리어', '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰',
-    '20대', '30대', '40대', '여성', '남성' # 연령대 쇼핑 키워드 차단
+        '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
+        '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
+        '쇼핑몰', '드레스룸', '캐리어', '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰',
+        '20대', '30대', '40대', '여성', '남성'
     ]
     
     if category_name == "해외여행":
+        # '풀빌라' 허용을 위해 제외 목록에서 제외
         exclude_words = base_exclude + ['펜션', '모텔', '민박', '글램핑', '캠핑장', '스테이', '파티룸', '국내', '제주도', '강원도']
         min_vol, max_vol = 500, 10000
         child_words = ['아이', '가족', '어린이', '초등학생', '키즈', '체험', '박물관', '미술관', '동물원', '수족관', '테마파크', '투어', '현지투어', '갈만한', '볼만한', '디즈니', '유니버설']
     
-    # ❌ 초등학생 카테고리 전용 필터 (교육/체험 위주로 남기기)
     elif category_name == "초등학생":
-        exclude_words = base_exclude + ['14k', '18k', '24k', '순금', '금시세']
+        # 초등학생은 금 관련 시세만 막고 단어 자체는 허용(선물용)
+        exclude_words = base_exclude + ['금시세', '금값', '14k', '18k', '24k']
         min_vol, max_vol = 500, 3000
-        child_words = ['아이', '체험', '교육', '학습', '박물관', '도서', '전시', '과학', '미술', '갈만한', '볼만한', '놀이터', '과학관']
+        child_words = ['아이', '체험', '교육', '학습', '박물관', '도서', '전시', '과학', '미술', '갈만한', '볼만한', '놀이터']
     
     else:
         exclude_words = base_exclude
@@ -190,12 +176,11 @@ with col1:
 with col2:
     hint_kw = st.text_input("분석 키워드 입력", value=st.session_state['current_kw'])
     
-    # ⭐ 호출 시 category 변수를 함께 넘겨주는 것이 핵심!
     if st.button("🚀 데이터 분석 시작") or st.session_state.get('do_analyze', False):
         if 'do_analyze' in st.session_state: del st.session_state['do_analyze']
         
         with st.spinner(f"'{hint_kw}' 꿀 키워드 발굴 중..."):
-            df = analyze_keywords(hint_kw, category) # <-- 여기를 수정했습니다!
+            df = analyze_keywords(hint_kw, category) 
             if df is not None and not df.empty:
                 st.success(f"'{hint_kw}' 분석 완료!")
                 st.dataframe(df, use_container_width=True)
