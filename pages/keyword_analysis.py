@@ -5,8 +5,9 @@ import hashlib
 import base64
 import requests
 import pandas as pd
+from datetime import datetime
 
-# --- [1. Secrets 설정 확인] ---
+# --- [1. API 설정] ---
 try:
     AD_CUSTOMER_ID = st.secrets["AD_CUSTOMER_ID"]
     AD_API_KEY = st.secrets["AD_API_KEY"]
@@ -17,7 +18,6 @@ except:
     st.error("Secrets 설정을 확인해주세요.")
     st.stop()
 
-# --- [2. API 관련 함수들] ---
 def get_header(method, uri):
     timestamp = str(int(time.time() * 1000))
     message = "{}.{}.{}".format(timestamp, method, uri)
@@ -33,51 +33,34 @@ def get_blog_count(keyword):
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
+# --- [2. 핵심 분석 로직] ---
 def analyze_keywords(hint_keyword):
-    # '제주도 아이랑' 입력 시 -> '제주도 아이랑 가볼만한곳', '제주도 키즈펜션' 등으로 자동 확장
-    expanded_keywords = [
-        f"{hint_keyword} 가볼만한곳",
-        f"{hint_keyword} 체험",
-        f"{hint_keyword} 숙소",
-        f"제주도 키즈카페" # 예시
-    ]
-    clean_keyword = ",".join(expanded_keywords)
+    # 400 에러 방지: 쉼표 기준으로 딱 1개만 확실하게 보냅니다.
+    clean_keyword = hint_keyword.replace(" ", "").split(',')[0]
     
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
-    
-    # ⭐ biztpId="15"는 '여행/숙박' 업종 코드입니다. 
-    # 이걸 넣어야 '아기띠' 대신 '여행지'가 나옵니다!
-    params = {
-        'hintKeywords': clean_keyword, 
-        'showDetail': '1',
-        'biztpId': '15' 
-    }
+    # biztpId='15' (여행/숙박) 고정
+    params = {'hintKeywords': clean_keyword, 'showDetail': '1', 'biztpId': '15'}
     
     response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
     
     if response.status_code != 200:
-        st.error(f"API 호출 실패 (코드: {response.status_code}) - 키워드를 확인해주세요.")
+        st.error(f"API 호출 실패 (코드: {response.status_code}) - '{clean_keyword}' 키워드 형식을 확인해주세요.")
         return None
 
     data = response.json().get('keywordList', [])
-    # 본인 키워드 포함 상위 15개 분석
     results = []
-    progress_bar = st.progress(0)
+    
+    exclude_words = ['아기띠', '아띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
+    child_place_words = ['아이', '아들', '초등학생', '자녀', '가족', '키즈', '체험', '박물관', '공원', '랜드', '목장', '카페', '펜션', '숙소', '정원', '갈만한', '볼만한']
 
-    # 👶 "아이랑" 관련 필수 포함 단어 리스트
-    include_words = ['아이', '아기', '초등학생', '아들', '딸', '가족', '키즈', '체험', '박물관', '공원', '동물원', '자녀', '카페']
-    
-    # 제외하고 싶은 단어 리스트 (여기에 추가하면 절대 안 뜹니다)
-    exclude_words = ['아띠', '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
-    
-    # 100개까지 훑어서 알짜를 골라냅니다
-    for i, item in enumerate(data[:100]):
+    progress_bar = st.progress(0)
+    found_count = 0
+
+    for i, item in enumerate(data[:150]): # 더 많이 훑습니다.
         kw = item['relKeyword']
-        
-        # 1. 제외 단어 필터링
-        if any(word in kw for word in exclude_words):
-            continue
+        if any(word in kw for word in exclude_words): continue
             
         def parse_val(val):
             if isinstance(val, int): return val
@@ -86,77 +69,23 @@ def analyze_keywords(hint_keyword):
 
         total_vol = parse_val(item['monthlyPcQcCnt']) + parse_val(item['monthlyMobileQcCnt'])
         
-        # 2. ⭐ 요청하신 검색량 필터링 (500 ~ 3,000 사이만 집중 분석)
-        # 너무 적거나 너무 많은 키워드는 일단 뒤로 보냅니다.
-        if not (500 <= total_vol <= 3000):
-            continue
+        # ⭐ 요청하신 검색량 필터 (500~3,000 구간)
+        if not (500 <= total_vol <= 3000): continue
 
         blog_count = get_blog_count(kw)
-        if blog_count == 0: continue # 데이터가 없으면 패스
+        if blog_count == 0: continue
         
-        # 3. 블루오션 지수 계산 (검색량 / 블로그수)
-        # 아이 관련 단어가 포함되어 있으면 가중치를 주어 상단에 배치
-        bonus = 1.5 if any(word in kw for word in child_place_words) else 1.0
+        # 지수 계산 및 아이 관련 가점
+        bonus = 1.8 if any(word in kw for word in child_place_words) else 1.0
         index = round((total_vol / blog_count * 100) * bonus, 2)
         
-        results.append({
-            '키워드': kw, 
-            '총검색량': total_vol, 
-            '블로그수': blog_count, 
-            '블루오션지수': index, 
-            '경쟁정도': item['compIdx']
-        })
+        results.append({'키워드': kw, '총검색량': total_vol, '블로그수': blog_count, '블루오션지수': index, '경쟁정도': item['compIdx']})
+        found_count += 1
         
-        if len(results) >= 20: # 넉넉하게 20개까지 수집
-            break
-        
-        progress_bar.progress(min((i + 1) / 100, 1.0))
+        progress_bar.progress(min(found_count / 15, 1.0))
+        if found_count >= 15: break
         time.sleep(0.05)
         
     df = pd.DataFrame(results)
-    
-    # 4. ⭐ 최종 정렬: 블루오션 지수가 높은 순서대로!
     if not df.empty:
-        df = df.sort_values(by='블루오션지수', ascending=False).reset_index(drop=True)
-        df.index = df.index + 1
-        
-    return df
-
-# --- [3. 화면 구성] ---
-st.set_page_config(page_title="블루오션 키워드 분석", layout="wide")
-st.title("🔍 네이버 블로그 키워드 분석기")
-
-# 카테고리별 추천 키워드 매핑
-recommend_map = {
-    "국내여행": ["제주도 아이랑", "강원도 아이랑", "주말 가볼만한곳"],
-    "육아": ["유아식 식단", "아기랑 실내놀이터", "초등학생 준비물"],
-    "스포츠(야구)": ["기아타이거즈 일정", "잠실야구장 명당", "야구 응원가"],
-    "도서": ["초등 역사책 추천", "베스트셀러 순위", "육아 서적"],
-}
-
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    category = st.selectbox("카테고리 선택", list(recommend_map.keys()) + ["기타"])
-    
-    # 카테고리에 맞는 추천 키워드 버튼 생성
-    st.write("💡 추천 키워드")
-    recommends = recommend_map.get(category, ["직접 입력"])
-    selected_recom = ""
-    for r in recommends:
-        if st.button(r):
-            selected_recom = r
-
-with col2:
-    # 버튼 클릭 시 해당 키워드가 입력창에 들어가도록 설정
-    hint_kw = st.text_input("분석할 대표 키워드를 입력하세요", value=selected_recom if selected_recom else category)
-    
-    if st.button("🚀 데이터 분석 시작"):
-        with st.spinner(f"'{hint_kw}' 기반 블루오션 키워드 찾는 중..."):
-            df = analyze_keywords(hint_kw)
-            if df is not None and not df.empty:
-                st.success("분석 완료!")
-                df = df.sort_values(by='블루오션지수', ascending=False).reset_index(drop=True)
-                df.index = df.index + 1
-                st.dataframe(df, use_container_width=True)
-                st.balloons()
+        df = df.sort_values(by='블루오션지수', ascending=
