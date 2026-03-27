@@ -33,46 +33,6 @@ def get_blog_count(keyword):
     except: return 0
 
 # --- [2. 트렌드 추출 (왼쪽 버튼)] ---
-def get_official_trends(category_name):
-    BASE_URL = 'https://api.searchad.naver.com'
-    uri = '/keywordstool'
-    clean_cat = category_name.split('(')[0]
-    params = {'hintKeywords': clean_cat, 'showDetail': '1', 'biztpId': '15'}
-    
-    # 변수 초기화 (Error 방지)
-    data = []
-    filtered_trends = []
-
-    # 🚫 공통 제외 키워드 (귀걸이, 반지, 목걸이 제외됨)
-    exclude_in_trend = [
-        '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
-        '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
-        '중고', '장터', '판매', '구매', '매입', '렌탈', '최저가', '할인쿠폰', '쇼핑몰', '20대', '30대', '여성'
-    ]
-    
-    if category_name == "해외여행":
-        # '풀빌라'는 검색량이 많아 제외에서 뺌
-        exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '레지던스', '국내']
-    elif category_name == "초등학생":
-        exclude_in_trend += ['가방', '책가방', '운동화', '신발', '의류', '옷', '선물세트']
-
-    try:
-        response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
-        if response.status_code == 200:
-            data = response.json().get('keywordList', [])
-            
-            for item in data:
-                kw = item['relKeyword'].replace(" ", "").lower()
-                # 필터링 로직
-                if not any(word in kw for word in exclude_in_trend):
-                    filtered_trends.append(item['relKeyword'])
-                if len(filtered_trends) >= 7:
-                    break
-            return filtered_trends
-    except: pass
-    return [f"{clean_cat} 추천", f"{clean_cat} 가볼만한곳", f"아이랑 {clean_cat}"]
-
-# --- [3. 메인 분석 함수 (오른쪽 결과)] ---
 def analyze_keywords(hint_keyword, category_name):
     clean_keyword = hint_keyword.replace(" ", "").split(',')[0]
     BASE_URL = 'https://api.searchad.naver.com'
@@ -85,7 +45,7 @@ def analyze_keywords(hint_keyword, category_name):
     data = response.json().get('keywordList', [])
     results = []
     
-    # 🚫 공통 제외 단어 (귀걸이, 반지, 목걸이 허용)
+    # 🚫 공통 제외 단어
     base_exclude = [
         '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에',
         '14k', '18k', '24k', '순금', '금시세', '금값', '커플링',
@@ -112,9 +72,18 @@ def analyze_keywords(hint_keyword, category_name):
 
     for item in data:
         kw = item['relKeyword']
+        
+        # 1. 제외 단어 필터 (기존 로직)
         if any(word in kw for word in exclude_words):
             continue
-        
+            
+        # 2. ⭐ [추가] 여행 키워드 필수 포함 로직 (여행 카테고리일 때만 작동)
+        # 이 단어들이 하나도 안 들어있으면 '여행'과 무관한 쇼핑몰로 간주하고 버립니다.
+        if category_name in ["해외여행", "국내여행"]:
+            must_include = ['여행', '투어', '숙소', '호텔', '리조트', '갈만한', '볼만한', '아이랑', '비행기', '항공', '입국', '명소']
+            if not any(word in kw for word in must_include):
+                continue
+
         def parse_val(val):
             if isinstance(val, int): return val
             if isinstance(val, str) and '<' in val: return 5
@@ -146,7 +115,7 @@ def analyze_keywords(hint_keyword, category_name):
         df = df.sort_values(by='블루오션지수', ascending=False).reset_index(drop=True)
         df.index = df.index + 1
     return df
-
+    
 # --- [4. 화면 구성] ---
 st.set_page_config(page_title="육아 블로거 키워드 비기", layout="wide")
 st.title("🔍 네이버 블로그 키워드 분석기")
