@@ -58,15 +58,23 @@ def analyze_keywords(hint_keyword):
     # 본인 키워드 포함 상위 15개 분석
     results = []
     progress_bar = st.progress(0)
+
+    # 👶 "아이랑" 관련 필수 포함 단어 리스트
+    include_words = ['아이', '아기', '초등학생', '아들', '딸', '가족', '키즈', '체험', '박물관', '공원', '동물원', '자녀']
     
     # 제외하고 싶은 단어 리스트 (여기에 추가하면 절대 안 뜹니다)
     exclude_words = ['아띠', '아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '스쿠버', '어에']
-
+    
     for i, item in enumerate(data[:40]): # 필터링을 위해 데이터를 좀 더 넉넉히 40개 가져옵니다.
         kw = item['relKeyword']
         
         # 🚫 필터링 로직: 제외 단어가 포함되어 있으면 이번 루프는 그냥 건너뜁니다.
         if any(word in kw for word in exclude_words):
+            continue
+
+        # 2. ⭐ 핵심: 포함 단어 필터 (아이랑 관련 없는 일반 키워드 차단)
+        # 키워드에 '아이', '가족', '키즈' 등이 하나라도 들어있어야만 합격!
+        if not any(word in kw for word in include_words):
             continue
             
         # 수치 변환 로직
