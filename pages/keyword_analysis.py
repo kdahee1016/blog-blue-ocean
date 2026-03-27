@@ -42,7 +42,7 @@ def get_official_trends(category_name):
     # 🚫 추천 키워드에서도 이 단어들은 무조건 제외!
     exclude_in_trend = ['아기띠', '힙시트', '카시트', '유모차', '기저귀', '분유', '어에']
     if category_name == "해외여행":
-        exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '풀빌라', '레지던스', '숙박예약']
+        exclude_in_trend += ['펜션', '모텔', '민박', '글램핑', '캠핑장', '레지던스', '국내']
 
     try:
         response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
