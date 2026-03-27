@@ -33,13 +33,20 @@ def get_blog_count(keyword):
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
-def analyze_keywords(hint_keyword):
-    # ⭐ 핵심: 띄어쓰기를 쉼표(,)로 치환하여 400 에러 방지
+    def analyze_keywords(hint_keyword):
+    # 띄어쓰기를 쉼표로 치환
     clean_keyword = hint_keyword.replace(" ", ",")
     
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
-    params = {'hintKeywords': clean_keyword, 'showDetail': '1'}
+    
+    # ⭐ biztpId="15"는 '여행/숙박' 업종 코드입니다. 
+    # 이걸 넣어야 '아기띠' 대신 '여행지'가 나옵니다!
+    params = {
+        'hintKeywords': clean_keyword, 
+        'showDetail': '1',
+        'biztpId': '15' 
+    }
     
     response = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri))
     
