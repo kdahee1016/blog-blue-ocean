@@ -6,75 +6,66 @@ import base64
 import requests
 import pandas as pd
 import google.generativeai as genai
-import re # 특수문자 제거를 위해 추가
+import re
 
-# --- [1. 스타일 및 화면 설정] ---
+# --- [1. 화면 설정 및 스타일] ---
 st.set_page_config(page_title="제미나이 키워드 비기", layout="wide")
-st.markdown("""
-<style>
-    .keyword-badge { display: inline-block; background-color: #f0f7ff; color: #007bff; padding: 4px 12px; border-radius: 12px; font-size: 14px !important; margin: 4px; border: 1px solid #cce5ff; }
-    div[data-testid="stMarkdownContainer"] p { font-size: 14px !important; }
-</style>
-""", unsafe_allow_html=True)
+st.markdown("""<style>.keyword-badge { display: inline-block; background-color: #f0f7ff; color: #007bff; padding: 4px 12px; border-radius: 12px; font-size: 14px !important; margin: 4px; border: 1px solid #cce5ff; }</style>""", unsafe_allow_html=True)
 
 # --- [2. API 설정] ---
 try:
-    AD_CUSTOMER_ID = str(st.secrets["AD_CUSTOMER_ID"]).strip()
-    AD_API_KEY = str(st.secrets["AD_API_KEY"]).strip()
-    AD_SECRET_KEY = str(st.secrets["AD_SECRET_KEY"]).strip()
-    SEARCH_CLIENT_ID = str(st.secrets["SEARCH_CLIENT_ID"]).strip()
-    SEARCH_CLIENT_SECRET = str(st.secrets["SEARCH_CLIENT_SECRET"]).strip()
+    # secrets에서 값 가져오기 (공백 제거)
+    cust_id = str(st.secrets["AD_CUSTOMER_ID"]).strip()
+    ad_key = str(st.secrets["AD_API_KEY"]).strip()
+    ad_secret = str(st.secrets["AD_SECRET_KEY"]).strip()
+    s_id = str(st.secrets["SEARCH_CLIENT_ID"]).strip()
+    s_secret = str(st.secrets["SEARCH_CLIENT_SECRET"]).strip()
+    g_key = st.secrets["GEMINI_API_KEY"]
 
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    genai.configure(api_key=g_key)
+    # 모델명을 명확하게 지정
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    st.error(f"❌ 설정 오류: {e}")
+    st.error(f"❌ 설정 로드 실패 (secrets.toml 확인): {e}")
     st.stop()
 
-# --- [3. 핵심 함수들] ---
+# --- [3. 함수 정의] ---
 def get_header(method, uri):
     timestamp = str(int(time.time() * 1000))
     message = timestamp + "." + method + "." + uri
-    h = hmac.new(AD_SECRET_KEY.encode('utf-8'), message.encode('utf-8'), hashlib.sha256)
+    h = hmac.new(ad_secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha256)
     signature = base64.b64encode(h.digest()).decode('utf-8')
-    return {'Content-Type': 'application/json; charset=UTF-8', 'X-Timestamp': timestamp, 'X-API-KEY': AD_API_KEY, 'X-Customer': AD_CUSTOMER_ID, 'X-Signature': signature}
+    return {'Content-Type': 'application/json; charset=UTF-8', 'X-Timestamp': timestamp, 'X-API-KEY': ad_key, 'X-Customer': cust_id, 'X-Signature': signature}
 
 def get_blog_count(keyword):
     url = "https://openapi.naver.com/v1/search/blog.json"
-    headers = {"X-Naver-Client-Id": SEARCH_CLIENT_ID, "X-Naver-Client-Secret": SEARCH_CLIENT_SECRET}
-    params = {"query": keyword, "display": 1}
+    headers = {"X-Naver-Client-Id": s_id, "X-Naver-Client-Secret": s_secret}
     try:
-        res = requests.get(url, headers=headers, params=params, timeout=5)
+        res = requests.get(url, headers=headers, params={"query": keyword, "display": 1}, timeout=5)
         return res.json().get('total', 0) if res.status_code == 200 else 0
     except: return 0
 
-def ask_gemini_keywords(prompt):
+def ask_gemini(prompt):
     try:
-        response = model.generate_content(prompt + " 답변은 다른 설명 없이 키워드만 콤마(,)로 구분해서 나열해줘.")
+        response = model.generate_content(prompt + " 답변은 콤마(,)로만 구분해서 키워드만 줘.")
         return [k.strip() for k in response.text.split(',') if k.strip()]
-    except: return []
+    except Exception as e:
+        st.error(f"🤖 제미나이 응답 오류: {e}")
+        return []
 
-def analyze_gemini_keywords(keyword_list):
+def analyze_keywords(keyword_list):
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     results = []
-    child_words = ['아이', '가족', '초등', '체험', '교육', '박물관', '역사', '유적', '어린이']
-    
     status_text = st.empty()
-    target_list = keyword_list[:10] # 진단을 위해 10개만 먼저 시도
     
-    for idx, kw in enumerate(target_list):
-        import re
-        # 특수문자 제거 (11001 에러 방지)
+    for kw in keyword_list[:10]: # 속도를 위해 10개만 테스트
         clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
         if not clean_kw: continue
-
-        status_text.text(f"📊 진단 분석 중 ({idx+1}/10): {clean_kw}")
-        params = {'hintKeywords': clean_kw, 'showDetail': '1'}
+        status_text.text(f"📊 분석 중: {clean_kw}")
         
         try:
-            resp = requests.get(BASE_URL + uri, params=params, headers=get_header('GET', uri), timeout=10)
-            
+            resp = requests.get(BASE_URL + uri, params={'hintKeywords': clean_kw, 'showDetail': '1'}, headers=get_header('GET', uri), timeout=10)
             if resp.status_code == 200:
                 data = resp.json().get('keywordList', [])
                 if data:
@@ -82,53 +73,43 @@ def analyze_gemini_keywords(keyword_list):
                     p = lambda v: v if isinstance(v, int) else (5 if isinstance(v, str) and '<' in v else 0)
                     vol = p(item['monthlyPcQcCnt']) + p(item['monthlyMobileQcCnt'])
                     blog = get_blog_count(clean_kw)
-                    
-                    # 블로그 수가 0이라도 일단 지수 계산 진행 (나누기 0 방지)
-                    bonus = 1.8 if any(w in clean_kw for w in child_words) else 1.0
+                    bonus = 1.8 if any(w in clean_kw for w in ['아이', '가족', '체험', '역사', '초등']) else 1.0
                     index = round((vol / (blog if blog > 0 else 1) * 100) * bonus, 2)
                     results.append({'키워드': clean_kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if bonus > 1.0 else ''})
             else:
-                # 🚨 여기가 핵심! 네이버가 왜 거절했는지 에러 코드를 직접 보여줍니다.
-                st.error(f"❌ 네이버 API 응답 오류 ({clean_kw}): {resp.status_code}")
-                with st.expander("상세 에러 내용 보기"):
-                    st.code(resp.text) # 이 내용을 복사해서 저에게 알려주세요!
-                
+                st.error(f"❌ 네이버 응답 에러 ({clean_kw}): {resp.status_code}")
+                st.write(resp.text) # 에러 원문 출력
             time.sleep(0.5)
         except Exception as e:
-            st.warning(f"⚠️ 연결 실패: {e}")
-            continue
-            
+            st.error(f"⚠️ 연결 오류: {e}")
     status_text.empty()
     return pd.DataFrame(results)
 
-# --- [4. 메인 화면 구성] ---
-st.title("🤖 제미나이 x 네이버 꿀키워드 분석기")
+# --- [4. 메인 화면] ---
+st.title("🤖 제미나이 키워드 분석기")
 
-if 'trend_list' not in st.session_state: st.session_state['trend_list'] = []
+if 'trends' not in st.session_state: st.session_state['trends'] = []
 
-col1, col2 = st.columns([1, 2])
-with col1:
-    category = st.selectbox("카테고리 선택", ["국내여행", "해외여행", "스포츠", "도서", "초등학생"])
-    if st.button(f"✨ {category} 트렌드 확인"):
-        st.session_state['trend_list'] = ask_gemini_keywords(f"육아 블로거를 위한 {category} 관련 인기 포스팅 키워드 5개")
-        st.rerun()
-    if st.session_state['trend_list']:
-        st.divider()
-        for tk in st.session_state['trend_list']:
-            st.markdown(f'<span class="keyword-badge"># {tk}</span>', unsafe_allow_html=True)
+c1, c2 = st.columns([1, 2])
+with c1:
+    cat = st.selectbox("카테고리", ["국내여행", "해외여행", "초등학생"])
+    if st.button("✨ 트렌드 확인"):
+        res = ask_gemini(f"육아 블로거용 {cat} 인기 키워드 5개")
+        if res:
+            st.session_state['trends'] = res
+            st.rerun()
+    for t in st.session_state['trends']:
+        st.markdown(f'<span class="keyword-badge"># {t}</span>', unsafe_allow_html=True)
 
-with col2:
-    search_input = st.text_input("분석할 메인 키워드 입력", placeholder="예: 아이랑 중국여행")
+with c2:
+    target = st.text_input("메인 키워드", placeholder="예: 아이랑 중국여행")
     if st.button("🚀 블루오션 분석 시작"):
-        if search_input:
-            with st.spinner("데이터 분석 중..."):
-                keywords = ask_gemini_keywords(f"'{search_input}' 관련 네이버 블로그 세부 키워드 15개. 콤마로만 구분.")
-                df = analyze_gemini_keywords(keywords)
+        if target:
+            kws = ask_gemini(f"'{target}' 관련 네이버 세부 키워드 10개")
+            if kws:
+                df = analyze_keywords(kws)
                 if not df.empty:
                     st.success("분석 완료!")
-                    final_df = df.sort_values('블루오션지수', ascending=False).reset_index(drop=True)
-                    final_df.index = final_df.index + 1
-                    st.dataframe(final_df, use_container_width=True)
-                    st.balloons()
+                    st.dataframe(df.sort_values('블루오션지수', ascending=False))
                 else:
-                    st.error("분석 결과가 없습니다. API 설정을 확인해주세요.")
+                    st.error("분석 결과가 없습니다. 에러 메시지를 확인하세요.")
