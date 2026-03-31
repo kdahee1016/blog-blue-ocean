@@ -27,7 +27,6 @@ try:
     g_key = st.secrets["GEMINI_API_KEY"]
 
     genai.configure(api_key=g_key)
-    # 모델 자동 탐색 (404 에러 방지)
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     target_model = 'models/gemini-1.5-flash' if 'models/gemini-1.5-flash' in available_models else available_models[0]
     model = genai.GenerativeModel(target_model)
@@ -38,7 +37,6 @@ except Exception as e:
 # --- [3. 핵심 함수 정의] ---
 
 def get_header(method, uri):
-    """네이버 광고 API 인증 헤더 생성"""
     timestamp = str(int(time.time() * 1000))
     message = timestamp + "." + method + "." + uri
     h = hmac.new(ad_secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha256)
@@ -52,16 +50,15 @@ def get_header(method, uri):
     }
 
 def get_blog_count(keyword):
-    """네이버 검색 API를 이용한 블로그 발행량 조회"""
     url = "https://openapi.naver.com/v1/search/blog.json"
     headers = {"X-Naver-Client-Id": s_id, "X-Naver-Client-Secret": s_secret}
     try:
         res = requests.get(url, headers=headers, params={"query": keyword, "display": 1}, timeout=5)
         return res.json().get('total', 0) if res.status_code == 200 else 0
-    except: return 0
+    except:
+        return 0
 
 def ask_gemini(prompt):
-    """제미나이에게 키워드 추천 요청"""
     try:
         response = model.generate_content(prompt + " 답변은 다른 설명 없이 키워드만 콤마(,)로 구분해서 나열해줘.")
         if response and response.text:
@@ -72,24 +69,22 @@ def ask_gemini(prompt):
         return []
 
 def analyze_keywords(keyword_list):
-    """네이버 광고 API 데이터를 활용한 블루오션 지수 분석"""
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     results = []
     status_text = st.empty()
     
-    # 👶 육아 가중치 단어 (10살 아드님 맞춤형)
+    # 육아/여행 가중치 단어
     child_words = ['아이', '아기', '가족', '초등', '체험', '교육', '박물관', '역사', '유적', '어린이', '제주']
     
     for idx, kw in enumerate(keyword_list[:15]):
-        # [정밀 세척] 특수문자 제거
         clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
-        if not clean_kw: continue
+        if not clean_kw:
+            continue
         
         status_text.text(f"📊 분석 중 ({idx+1}/15): {clean_kw}")
         
-        # 🔥 [11001 에러 해결 핵심]
-        # 공백을 콤마(,)로 치환하여 네이버 API가 파라미터 오류를 내지 않게 합니다.
+        # 11001 에러 방지를 위해 공백을 콤마로 치환
         hint_param = clean_kw.replace(" ", ",")
         params = {'hintKeywords': hint_param, 'showDetail': '1'}
         
@@ -101,27 +96,21 @@ def analyze_keywords(keyword_list):
                 data = resp.json().get('keywordList', [])
                 if data:
                     item = data[0]
-                    # 검색량 추출 로직
-                    def p(v): return v if isinstance(v, int) else (5 if isinstance(v, str) and '<' in v else 0)
+                    def p(v):
+                        return v if isinstance(v, int) else (5 if isinstance(v, str) and '<' in v else 0)
                     vol = p(item['monthlyPcQcCnt']) + p(item['monthlyMobileQcCnt'])
-                    
-                    # 블로그 지수 계산 (발행량)
                     blog = get_blog_count(clean_kw)
-                    
-                    # 블루오션 지수 계산 및 가중치 부여
                     is_child = any(cw in clean_kw for cw in child_words)
                     index = round((vol / (blog if blog > 0 else 1) * 100) * (1.8 if is_child else 1.0), 2)
-                    
                     results.append({
                         '키워드': clean_kw, '총검색량': vol, '블로그수': blog, 
                         '블루오션지수': index, '추천': '👶' if is_child else ''
                     })
             else:
-                # 에러 발생 시 상세 메시지 출력 (디버깅용)
-                st.warning(f"⚠️ '{clean_kw}' 분석 건너뜀: {resp.text}")
-            
+                st.warning(f"⚠️ '{clean_kw}' 분석 건너뜀: {resp.status_code}")
             time.sleep(0.5)
-        except: continue
+        except:
+            continue
         
     status_text.empty()
     return pd.DataFrame(results)
@@ -129,7 +118,8 @@ def analyze_keywords(keyword_list):
 # --- [4. 메인 화면 구성] ---
 st.title("🤖 제미나이 x 네이버 꿀키워드 분석기")
 
-if 'trends' not in st.session_state: st.session_state['trends'] = []
+if 'trends' not in st.session_state:
+    st.session_state['trends'] = []
 
 col1, col2 = st.columns([1, 2])
 
@@ -144,10 +134,24 @@ with col1:
                 st.rerun()
     
     if st.session_state['trends']:
-        st.write("")
         for t in st.session_state['trends']:
             st.markdown(f'<span class="keyword-badge"># {t}</span>', unsafe_allow_html=True)
 
 with col2:
     st.subheader("🚀 블루오션 키워드 발굴")
-    target = st.text_input("메인 키워드 입력", placeholder="예: 제주
+    target = st.text_input("메인 키워드 입력", placeholder="예: 제주도 아이랑 가볼만한곳")
+    
+    if st.button("데이터 정밀 분석 시작"):
+        if target:
+            with st.spinner("네이버 데이터 분석 중..."):
+                kws = ask_gemini(f"'{target}' 관련 네이버 블로그용 세부 키워드 15개")
+                if kws:
+                    df = analyze_keywords(kws)
+                    if not df.empty:
+                        st.success("분석 완료!")
+                        final_df = df.sort_values('블루오션지수', ascending=False).reset_index(drop=True)
+                        final_df.index = final_df.index + 1
+                        st.dataframe(final_df, use_container_width=True)
+                        st.balloons()
+                    else:
+                        st.error("분석 결과가 없습니다.")
