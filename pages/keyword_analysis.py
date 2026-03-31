@@ -50,8 +50,17 @@ def get_blog_count(keyword):
 
 def ask_gemini(prompt):
     try:
-        response = model.generate_content(prompt + " 답변은 콤마(,)로만 구분해서 키워드만 나열해줘.")
-        return [k.strip() for k in response.text.split(',') if k.strip()]
+        # 🔥 [수정] 제미나이가 헛소리(?)를 못하게 더 강력한 제약을 걸었습니다.
+        full_prompt = f"{prompt}. 반드시 다른 설명이나 서론, 영어 없이 '키워드1, 키워드2, 키워드3' 형식으로 단어만 출력해."
+        response = model.generate_content(full_prompt)
+        if response and response.text:
+            # 콤마로 나누고 만약 영어 문장이 섞여있다면 한글/숫자가 포함된 단어만 필터링
+            raw_text = response.text.strip()
+            # 혹시라도 포함된 Thoughts나 서론을 제거하기 위해 마지막 줄만 가져오거나 필터링
+            kws = [k.strip() for k in raw_text.split(',') if k.strip()]
+            # 한글이 포함된 것 위주로 정제
+            return [k for k in kws if re.search('[가-힣]', k)][:15]
+        return []
     except: return []
 
 def color_and_emoji(val):
@@ -114,7 +123,7 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("💡 트렌드")
-    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "맛집", "야구", "영화"])
+    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "야구", "영화"])
 
     if st.button("✨ 추출"):
         # 🔥 [핵심 변경] 야구/영화 등은 일반용으로, 나머지는 육아용으로!
@@ -129,7 +138,9 @@ with col1:
             st.rerun()
             
     for t in st.session_state['trends']:
-        st.markdown(f'<span class="keyword-badge"># {t}</span>', unsafe_allow_html=True)
+        # 영어로 된 긴 문장이 나오지 않도록 방어 코드
+        if len(t) < 20: 
+            st.markdown(f'<span class="keyword-badge"># {t}</span>', unsafe_allow_html=True)
 
 with col2:
     st.subheader("🚀 분석")
