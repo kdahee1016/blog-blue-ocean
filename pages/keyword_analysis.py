@@ -58,17 +58,18 @@ def analyze_gemini_keywords(keyword_list):
     BASE_URL = 'https://api.searchad.naver.com'
     uri = '/keywordstool'
     results = []
-    child_words = ['아이', '가족', '초등학생', '체험', '교육', '박물관', '미술', '과학', '갈만한', '볼만한']
+    child_words = ['아이', '가족', '초등', '체험', '교육', '박물관', '역사', '유적', '어린이']
     
     status_text = st.empty()
-    target_list = keyword_list[:10] # 일단 10개만 테스트
+    target_list = keyword_list[:10] # 진단을 위해 10개만 먼저 시도
     
     for idx, kw in enumerate(target_list):
         import re
+        # 특수문자 제거 (11001 에러 방지)
         clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
         if not clean_kw: continue
 
-        status_text.text(f"📊 분석 중 ({idx+1}/{len(target_list)}): {clean_kw}")
+        status_text.text(f"📊 진단 분석 중 ({idx+1}/10): {clean_kw}")
         params = {'hintKeywords': clean_kw, 'showDetail': '1'}
         
         try:
@@ -78,24 +79,23 @@ def analyze_gemini_keywords(keyword_list):
                 data = resp.json().get('keywordList', [])
                 if data:
                     item = data[0]
-                    # 검색량이 너무 적으면 0으로 나올 수 있습니다.
                     p = lambda v: v if isinstance(v, int) else (5 if isinstance(v, str) and '<' in v else 0)
                     vol = p(item['monthlyPcQcCnt']) + p(item['monthlyMobileQcCnt'])
                     blog = get_blog_count(clean_kw)
                     
-                    # 블로그 수가 0이면 지수 계산이 안 되므로 1로 치환하거나 스킵
-                    if blog >= 0:
-                        bonus = 1.8 if any(w in clean_kw for w in ['아이', '가족', '체험', '역사']) else 1.0
-                        index = round((vol / (blog if blog > 0 else 1) * 100) * bonus, 2)
-                        results.append({'키워드': clean_kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if bonus > 1.0 else ''})
+                    # 블로그 수가 0이라도 일단 지수 계산 진행 (나누기 0 방지)
+                    bonus = 1.8 if any(w in clean_kw for w in child_words) else 1.0
+                    index = round((vol / (blog if blog > 0 else 1) * 100) * bonus, 2)
+                    results.append({'키워드': clean_kw, '총검색량': vol, '블로그수': blog, '블루오션지수': index, '추천': '👶' if bonus > 1.0 else ''})
             else:
-                # 🚨 [중요] 여기가 핵심입니다. 실패 원인을 화면에 직접 보여줍니다.
-                st.error(f"❌ 네이버 광고 API 오류 ({clean_kw}): {resp.status_code}")
-                st.code(resp.text) # 이 코드를 저에게 복사해서 알려주세요!
+                # 🚨 여기가 핵심! 네이버가 왜 거절했는지 에러 코드를 직접 보여줍니다.
+                st.error(f"❌ 네이버 API 응답 오류 ({clean_kw}): {resp.status_code}")
+                with st.expander("상세 에러 내용 보기"):
+                    st.code(resp.text) # 이 내용을 복사해서 저에게 알려주세요!
                 
             time.sleep(0.5)
         except Exception as e:
-            st.error(f"⚠️ 시스템 에러: {e}")
+            st.warning(f"⚠️ 연결 실패: {e}")
             continue
             
     status_text.empty()
