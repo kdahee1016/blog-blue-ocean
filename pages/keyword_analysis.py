@@ -50,25 +50,14 @@ def get_blog_count(keyword):
 
 def ask_gemini(prompt):
     try:
-        # 🔥 [수정] 제미나이가 헛소리(?)를 못하게 더 강력한 제약을 걸었습니다.
-        full_prompt = f"{prompt}. 반드시 다른 설명이나 서론, 영어 없이 '키워드1, 키워드2, 키워드3' 형식으로 단어만 출력해."
+        full_prompt = f"{prompt}. 반드시 다른 설명이나 영어 없이 '키워드1, 키워드2, 키워드3' 형식으로 단어만 출력해."
         response = model.generate_content(full_prompt)
         if response and response.text:
-            # 콤마로 나누고 만약 영어 문장이 섞여있다면 한글/숫자가 포함된 단어만 필터링
             raw_text = response.text.strip()
-            # 혹시라도 포함된 Thoughts나 서론을 제거하기 위해 마지막 줄만 가져오거나 필터링
             kws = [k.strip() for k in raw_text.split(',') if k.strip()]
-            # 한글이 포함된 것 위주로 정제
             return [k for k in kws if re.search('[가-힣]', k)][:15]
         return []
     except: return []
-
-def color_and_emoji(val):
-    """지수에 따라 이모지와 색상을 결정하는 함수"""
-    if val >= 1.0:
-        return f"🔵 👍 {val}" # 블루오션 (파란색 이모지 느낌)
-    else:
-        return f"🔴 👎 {val}" # 레드오션 (빨간색 이모지 느낌)
 
 def analyze_keywords(keyword_list):
     BASE_URL = 'https://api.searchad.naver.com'
@@ -76,14 +65,13 @@ def analyze_keywords(keyword_list):
     results = []
     status_text = st.empty()
     
-    # 가중치 단어
-    child_words = ['아이', '가족', '초등', '체험', '교육', '박물관', '미술', '과학', '갈만한', '볼만한']
+    child_words = ['아이', '가족', '초등학생', '체험', '교육', '박물관', '미술', '과학', '갈만한', '볼만한']
     
-    for idx, kw in enumerate(keyword_list[:15]):
+    for idx, kw in enumerate(keyword_list):
         clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
         if not clean_kw: continue
         
-        status_text.text(f"📊 분석 중 ({idx+1}/15): {clean_kw}")
+        status_text.text(f"📊 분석 중 ({idx+1}/{len(keyword_list)}): {clean_kw}")
         hint_param = clean_kw.replace(" ", ",")
         
         try:
@@ -97,17 +85,12 @@ def analyze_keywords(keyword_list):
                     blog = get_blog_count(clean_kw)
                     
                     is_child = any(cw in clean_kw for cw in child_words)
-                    # 🔥 [수정] 가중치 1.8 -> 1.3으로 하향 조정
                     raw_index = (vol / (blog if blog > 0 else 1) * 100) * (1.3 if is_child else 1.0)
                     index = round(raw_index, 2)
                     
                     results.append({
-                        '키워드': clean_kw,
-                        '총검색량': vol,
-                        '블로그수': blog,
-                        '블루오션지수': index,
-                        '상태': '👍 블루오션' if index >= 1.0 else '👎 레드오션',
-                        '추천': '👶' if is_child else ''
+                        '키워드': clean_kw, '총검색량': vol, '블로그수': blog, 
+                        '블루오션지수': index, '상태': '👍 블루' if index >= 1.0 else '👎 레드', '추천': '👶' if is_child else ''
                     })
             time.sleep(0.4)
         except: continue
@@ -122,43 +105,50 @@ if 'trends' not in st.session_state: st.session_state['trends'] = []
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("💡 트렌드")
-    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "야구", "기아타이거즈", "영화"])
-
-    if st.button("✨ 추출"):
-        # 🔥 [핵심 변경] 야구/영화 등은 일반용으로, 나머지는 육아용으로!
-        if cat in ["야구", "영화"]:
-            prompt = f"네이버 블로그에서 검색량이 급증하는 {cat} 관련 핫한 인기 키워드 5개"
+    st.subheader("💡 주제별 트렌드 추천")
+    # 🔥 [수정] Selectbox 대신 Text Input으로 변경
+    custom_cat = st.text_input("추천받고 싶은 주제를 입력하세요", placeholder="예: 아이랑 갈만한 식당, 캠핑, 광주 맛집 등")
+    
+    if st.button("✨ 추천 키워드 추출"):
+        if custom_cat:
+            with st.spinner("제미나이가 고민 중..."):
+                # 야구/영화 관련 단어가 포함되면 일반용, 아니면 육아용으로 프롬프트 자동 조절
+                if any(x in custom_cat for x in ["야구", "기아", "타이거즈", "영화", "KBO"]):
+                    prompt = f"네이버 검색량이 많은 핫한 {custom_cat} 관련 인기 키워드 5개"
+                else:
+                    prompt = f"육아 블로거가 포스팅하기 좋은 {custom_cat} 관련 인기 키워드 5개"
+                    
+                res = ask_gemini(prompt)
+                if res:
+                    st.session_state['trends'] = res
+                    st.rerun()
         else:
-            prompt = f"육아 블로거가 포스팅하기 좋은 {cat} 관련 인기 키워드 5개"
-            
-        res = ask_gemini(prompt)
-        if res:
-            st.session_state['trends'] = res
-            st.rerun()
+            st.warning("주제를 입력해 주세요!")
             
     for t in st.session_state['trends']:
-        # 영어로 된 긴 문장이 나오지 않도록 방어 코드
         if len(t) < 20: 
             st.markdown(f'<span class="keyword-badge"># {t}</span>', unsafe_allow_html=True)
 
 with col2:
-    st.subheader("🚀 분석")
-    target = st.text_input("메인 키워드", placeholder="예: 제주도 아이랑")
+    st.subheader("🚀 블루오션 지수 분석")
+    target = st.text_input("정밀 분석할 메인 키워드 입력", placeholder="위의 추천 키워드 중 하나를 복사해서 넣어보세요!")
     if st.button("분석 시작"):
         if target:
-            with st.spinner("데이터 분석 중..."):
-                kws = ask_gemini(f"'{target}' 관련 네이버 세부 키워드 15개")
+            with st.spinner("네이버 데이터 분석 중..."):
+                if any(x in target for x in ["야구", "기아", "타이거즈", "영화"]):
+                    prompt = f"'{target}' 관련 네이버 검색량이 많은 세부 키워드 15개"
+                else:
+                    prompt = f"'{target}' 관련 육아 블로거용 세부 키워드 15개"
+                    
+                kws = ask_gemini(prompt)
                 df = analyze_keywords(kws)
                 if not df.empty:
                     st.success("분석 완료!")
-                    # 정렬
                     df = df.sort_values('블루오션지수', ascending=False).reset_index(drop=True)
                     df.index = df.index + 1
                     
-                    # 🔥 [색상 스타일링 적용]
                     def style_status(val):
-                        color = '#1f77b4' if '👍' in val else '#d62728' # 파란색 vs 빨간색
+                        color = '#1f77b4' if '👍' in val else '#d62728'
                         return f'color: {color}; font-weight: bold;'
 
                     st.dataframe(df.style.applymap(style_status, subset=['상태']), use_container_width=True)
