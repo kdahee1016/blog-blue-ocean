@@ -114,12 +114,20 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("💡 트렌드")
-    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "맛집", "스포츠", "야구", "영화"])
+    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "맛집", "야구", "영화"])
+
     if st.button("✨ 추출"):
-        res = ask_gemini(f"육아 블로거용 {cat} 인기 키워드 5개")
+        # 🔥 [핵심 변경] 야구/영화 등은 일반용으로, 나머지는 육아용으로!
+        if cat in ["야구", "영화"]:
+            prompt = f"네이버 블로그에서 검색량이 급증하는 {cat} 관련 핫한 인기 키워드 5개"
+        else:
+            prompt = f"육아 블로거가 포스팅하기 좋은 {cat} 관련 인기 키워드 5개"
+            
+        res = ask_gemini(prompt)
         if res:
             st.session_state['trends'] = res
             st.rerun()
+            
     for t in st.session_state['trends']:
         st.markdown(f'<span class="keyword-badge"># {t}</span>', unsafe_allow_html=True)
 
