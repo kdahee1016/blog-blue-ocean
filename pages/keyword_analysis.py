@@ -75,7 +75,7 @@ def analyze_keywords(keyword_list):
     status_text = st.empty()
     
     # 육아/여행 가중치 단어
-    child_words = ['아이', '아기', '가족', '초등', '체험', '교육', '박물관', '역사', '유적', '어린이', '제주']
+    child_words = ['아이', '가족', '초등학생', '체험', '교육', '박물관', '미술', '과학', '갈만한', '볼만한']
     
     for idx, kw in enumerate(keyword_list[:15]):
         clean_kw = re.sub(r'[^0-9a-zA-Z가-힣\s]', '', kw).strip()
