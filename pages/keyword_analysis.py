@@ -97,7 +97,7 @@ def analyze_keywords(keyword_list):
                         '총검색량': vol,
                         '블로그수': blog,
                         '블루오션지수': index,
-                        '상태': '👍 블루' if index >= 1.0 else '👎 레드',
+                        '상태': '👍 블루오션' if index >= 1.0 else '👎 레드오션',
                         '추천': '👶' if is_child else ''
                     })
             time.sleep(0.4)
@@ -114,7 +114,7 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("💡 트렌드")
-    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "맛집"])
+    cat = st.selectbox("주제", ["국내여행", "해외여행", "초등학생", "맛집", "스포츠", "야구", "영화"])
     if st.button("✨ 추출"):
         res = ask_gemini(f"육아 블로거용 {cat} 인기 키워드 5개")
         if res:
