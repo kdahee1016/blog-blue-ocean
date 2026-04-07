@@ -1,10 +1,3 @@
-그 오류는 현재 사용 중인 API 키의 권한이나 해당 시점의 모델 지원 상태에 따라 gemini-1.5-flash라는 모델명을 찾지 못할 때 발생합니다. 특히 무료 티어와 유료 티어 사이에서 모델 식별자(ID)가 미세하게 다를 수 있습니다.
-
-이를 해결하기 위해, 모델명을 더 범용적인 것으로 수정하고, 만약의 경우를 대비해 사용 가능한 모델을 자동으로 탐색하는 로직을 강화한 최종 코드를 드립니다.
-
-🛠️ 오류 수정 및 기능 통합 완료 코드
-이 코드는 models/gemini-pro 또는 models/gemini-1.5-flash-latest 등 호출 가능한 모델을 순차적으로 시도합니다.
-
 Python
 import streamlit as st
 import google.generativeai as genai
