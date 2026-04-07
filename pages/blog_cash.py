@@ -8,7 +8,7 @@ st.set_page_config(page_title="오키랑의 프로 블로그 메이커", layout=
 if "blog_script" not in st.session_state:
     st.session_state.blog_script = ""
 
-# --- [처음 코드의 로직] 자동 모델 선택 함수 ---
+# --- [안정성 검증된] 자동 모델 선택 함수 ---
 def get_available_model():
     try:
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -22,7 +22,7 @@ def get_available_model():
 
 # --- 글자 수 계산 함수 (공백 제외) ---
 def get_clean_char_count(text):
-    # [요약문]과 [본문] 사이의 텍스트 추출
+    # [요약문]과 [본문] 섹션만 추출
     summary_part = re.search(r"\[요약문\](.*?)(\[본문\]|\[해시태그\]|$)", text, re.DOTALL)
     summary_txt = summary_part.group(1).strip() if summary_part else ""
     
@@ -30,12 +30,11 @@ def get_clean_char_count(text):
     body_txt = body_part.group(1).strip() if body_part else ""
     
     combined = summary_txt + body_txt
-    # 모든 공백 제거 후 글자 수 반환
     count = len(re.sub(r'\s', '', combined))
     return count
 
 st.title("📝 프로 블로그 초안 생성기")
-st.caption("가장 안정적인 모델 연결 방식을 적용한 버전입니다. ✨")
+st.caption("SEO 최적화 및 인간적인 서술 방식이 강화된 버전입니다. ✨")
 
 # 사이드바 설정
 with st.sidebar:
@@ -58,7 +57,7 @@ with st.sidebar:
 # 메인 화면: 키워드 설정
 with st.container():
     st.subheader("🔑 키워드 설정")
-    main_k = st.text_input("📍 메인 키워드 (본문 4회 노출)", placeholder="예: 성수동 카페 투어")
+    main_k = st.text_input("📍 메인 키워드 (본문 4회 노출)", placeholder="예: 한남동 핫플레이스 탐방")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -78,7 +77,7 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = get_available_model() # 첫 번째 코드의 핵심 함수 사용
+            model = get_available_model()
             
             emo_instruction = "특수문자 이모티콘을 문장 중간중간에 5~8개 적절히 섞어줘." if use_emo else "특수문자 이모티콘은 절대 사용하지 마."
             
@@ -89,20 +88,25 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
 
             [작성 규칙 - 절대 엄수]
             1. 아래 고정 태그 형식을 반드시 유지할 것:
-               [제목추천] / [요약문] / [본문] / [해시태그]
+               [제목 5개 추천] / [요약문] / [본문] / [해시태그]
             
-            2. 키워드 빈도:
+            2. 키워드 빈도 및 SEO:
                - 메인 키워드 '{main_k}'는 본문에 자연스럽게 '4회' 이상 언급.
                - 서브 키워드 '{sub_k1}', '{sub_k2}', '{sub_k3}', '{sub_k4}'는 본문에 각 '1회' 이상 언급.
+               - SEO 최적화를 위해 상단, 중단, 하단에 키워드를 고르게 배치하고 가독성 좋은 소제목을 필수로 사용할 것.
 
-            3. 분량 및 말투:
+            3. 인간적인 서술 및 중복 방지 (매우 중요):
+               - AI가 작성한 것처럼 느껴지는 상투적인 표현(예: '최근 ~가 각광받고 있습니다', '결론적으로 ~입니다')을 지양할 것.
+               - 직접 겪은 듯한 생생한 묘사와 감정 표현을 듬뿍 담아 '인간적인 서술 방식'으로 작성할 것.
+               - 유사 문서(중복 문서) 판독에 걸리지 않도록 문장 구조를 다채롭게 쓰고, 흔한 블로그 문구는 피할 것.
+
+            4. 분량 및 말투:
                - [요약문]과 [본문]의 총 합계가 '공백 제외 {target_len}자' 내외가 되도록 상세히 작성.
                - 말투: {tone_choice}
                - 이모티콘: {emo_instruction}
-               - 가독성을 위해 소제목을 활용하고 문장을 짧게 끊어서 작성.
             """
             
-            with st.spinner("AI가 원고를 작성 중입니다..."):
+            with st.spinner("SEO 최적화 및 인간적인 서술을 반영하여 원고를 작성 중입니다..."):
                 response = model.generate_content(prompt)
                 st.session_state.blog_script = response.text
                 
@@ -112,8 +116,6 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
 # --- 결과 출력 영역 ---
 if st.session_state.blog_script:
     blog_content = st.session_state.blog_script.strip()
-    
-    # [요약문] + [본문] 정밀 카운팅
     pure_count = get_clean_char_count(blog_content)
     
     st.divider()
