@@ -1,10 +1,6 @@
-Python
 import streamlit as st
 import google.generativeai as genai
 import re
-
-# 원고와 이미지를 갈라줄 고유 태그
-SPLIT_TAG = "[[SPLIT_HERE_FOR_IMAGES]]"
 
 st.set_page_config(page_title="오키랑의 프로 블로그 메이커", layout="centered")
 
@@ -15,7 +11,7 @@ if "blog_script" not in st.session_state:
 # --- 모델 호출 함수 (오류 방지용) ---
 def generate_with_fallback(api_key, prompt):
     genai.configure(api_key=api_key)
-    # 시도할 모델 리스트 (환경에 따라 이름이 다를 수 있음)
+    # 호출 가능한 모델 리스트 시도
     model_names = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"]
     
     for name in model_names:
@@ -24,24 +20,27 @@ def generate_with_fallback(api_key, prompt):
             response = model.generate_content(prompt)
             return response.text
         except Exception:
-            continue # 실패하면 다음 모델로 시도
+            continue 
     
-    raise Exception("사용 가능한 Gemini 모델을 찾을 수 없습니다. API 키를 확인해주세요.")
+    raise Exception("사용 가능한 Gemini 모델을 찾을 수 없습니다. API 키와 네트워크 상태를 확인해주세요.")
 
-# --- 글자 수 계산 함수 (고정 태그 기준) ---
+# --- 글자 수 계산 함수 (고정 태그 [요약문], [본문] 기준) ---
 def get_clean_char_count(text):
+    # [요약문] 내용 추출
     summary_part = re.search(r"\[요약문\](.*?)(\[본문\]|\[해시태그\]|$)", text, re.DOTALL)
     summary_txt = summary_part.group(1).strip() if summary_part else ""
     
+    # [본문] 내용 추출
     body_part = re.search(r"\[본문\](.*?)(\[해시태그\]|$)", text, re.DOTALL)
     body_txt = body_part.group(1).strip() if body_part else ""
     
+    # 두 섹션 합쳐서 공백 제거 카운트
     combined = summary_txt + body_txt
     count = len(re.sub(r'\s', '', combined))
     return count
 
 st.title("📝 프로 블로그 초안 생성기")
-st.caption("키워드 반복과 섹션별 글자 수까지 완벽하게 관리합니다. ✨")
+st.caption("키워드 빈도와 정밀 글자 수 체크에 집중한 텍스트 전용 메이커입니다. ✨")
 
 # 사이드바: 상세 설정
 with st.sidebar:
@@ -75,8 +74,7 @@ with st.container():
         sub_k4 = st.text_input("🔍 서브 키워드 4")
     
     st.divider()
-    user_exp = st.text_area("📸 실제 경험 및 흐름", height=150, placeholder="직접 겪은 에피소드를 적어주세요.")
-    img_req = st.text_input("🖼️ 필요한 이미지 목록", placeholder="예: 카페 외관, 커피 근접샷 등")
+    user_exp = st.text_area("📸 실제 경험 및 흐름", height=200, placeholder="직접 겪은 에피소드를 적어주세요.")
 
 # --- 생성 버튼 로직 ---
 if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
@@ -92,8 +90,11 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
             내용: {user_exp}
 
             [작성 규칙 - 절대 엄수]
-            1. 아래 고정 태그 형식을 반드시 유지할 것:
-               [제목추천] / [요약문] / [본문] / [해시태그]
+            1. 아래 고정 태그 형식을 반드시 유지할 것 (대괄호 포함):
+               [제목추천]
+               [요약문]
+               [본문]
+               [해시태그]
             
             2. 키워드 빈도:
                - 메인 키워드 '{main_k}'는 본문에 자연스럽게 '4회' 이상 언급.
@@ -104,12 +105,9 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
                - 말투: {tone_choice}
                - 이모티콘: {emo_instruction}
                - 가독성을 위해 소제목을 활용하고 문장을 짧게 끊어서 작성.
-
-            4. 이미지 프롬프트:
-               - 모든 작성이 끝나면 '{SPLIT_TAG}'를 쓰고 '{img_req}'에 대한 영어 이미지 프롬프트 3개를 작성.
             """
             
-            with st.spinner("모델을 확인하고 원고를 생성 중입니다..."):
+            with st.spinner("원고를 생성 중입니다..."):
                 res_text = generate_with_fallback(api_key, prompt)
                 st.session_state.blog_script = res_text
         except Exception as e:
@@ -117,8 +115,7 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
 
 # --- 결과 출력 영역 ---
 if st.session_state.blog_script:
-    res_parts = st.session_state.blog_script.split(SPLIT_TAG)
-    blog_content = res_parts[0].strip()
+    blog_content = st.session_state.blog_script.strip()
     
     # 정밀 카운팅
     pure_count = get_clean_char_count(blog_content)
@@ -131,10 +128,7 @@ if st.session_state.blog_script:
     c3.metric("차이", f"{pure_count - target_len}자")
 
     st.subheader("📋 생성된 블로그 원고")
-    st.text_area("전체 원고 내용", value=blog_content, height=500)
+    st.text_area("전체 원고 내용 (복사해서 사용하세요)", value=blog_content, height=600)
     
-    # 이미지 프롬프트 출력
-    if len(res_parts) > 1:
-        st.divider()
-        st.subheader("🖼️ 이미지 생성 프롬프트")
-        st.info(res_parts[1].strip())
+    # 간단한 복사 안내
+    st.info("💡 위 텍스트 영역의 내용을 드래그하여 복사하거나 수정 후 사용하세요.")
