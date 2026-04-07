@@ -1,3 +1,11 @@
+그 오류는 현재 사용 중인 API 키의 권한이나 해당 시점의 모델 지원 상태에 따라 gemini-1.5-flash라는 모델명을 찾지 못할 때 발생합니다. 특히 무료 티어와 유료 티어 사이에서 모델 식별자(ID)가 미세하게 다를 수 있습니다.
+
+이를 해결하기 위해, 모델명을 더 범용적인 것으로 수정하고, 만약의 경우를 대비해 사용 가능한 모델을 자동으로 탐색하는 로직을 강화한 최종 코드를 드립니다.
+
+🛠️ 오류 수정 및 기능 통합 완료 코드
+이 코드는 models/gemini-pro 또는 models/gemini-1.5-flash-latest 등 호출 가능한 모델을 순차적으로 시도합니다.
+
+Python
 import streamlit as st
 import google.generativeai as genai
 import re
@@ -11,23 +19,36 @@ st.set_page_config(page_title="오키랑의 프로 블로그 메이커", layout=
 if "blog_script" not in st.session_state:
     st.session_state.blog_script = ""
 
+# --- 모델 호출 함수 (오류 방지용) ---
+def generate_with_fallback(api_key, prompt):
+    genai.configure(api_key=api_key)
+    # 시도할 모델 리스트 (환경에 따라 이름이 다를 수 있음)
+    model_names = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"]
+    
+    for name in model_names:
+        try:
+            model = genai.GenerativeModel(name)
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception:
+            continue # 실패하면 다음 모델로 시도
+    
+    raise Exception("사용 가능한 Gemini 모델을 찾을 수 없습니다. API 키를 확인해주세요.")
+
 # --- 글자 수 계산 함수 (고정 태그 기준) ---
 def get_clean_char_count(text):
-    # [요약문] 내용 추출
     summary_part = re.search(r"\[요약문\](.*?)(\[본문\]|\[해시태그\]|$)", text, re.DOTALL)
     summary_txt = summary_part.group(1).strip() if summary_part else ""
     
-    # [본문] 내용 추출
     body_part = re.search(r"\[본문\](.*?)(\[해시태그\]|$)", text, re.DOTALL)
     body_txt = body_part.group(1).strip() if body_part else ""
     
-    # 두 섹션 합쳐서 공백 제거 카운트
     combined = summary_txt + body_txt
     count = len(re.sub(r'\s', '', combined))
     return count
 
 st.title("📝 프로 블로그 초안 생성기")
-st.caption("키워드 반복 횟수와 섹션별 글자 수까지 완벽하게 관리합니다. ✨")
+st.caption("키워드 반복과 섹션별 글자 수까지 완벽하게 관리합니다. ✨")
 
 # 사이드바: 상세 설정
 with st.sidebar:
@@ -70,9 +91,6 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
         st.error("API 키와 메인 키워드는 필수입니다.")
     else:
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            
             emo_instruction = "특수문자 이모티콘을 문장 중간중간에 5~8개 적절히 섞어줘." if use_emo else "특수문자 이모티콘은 절대 사용하지 마."
             
             prompt = f"""
@@ -98,9 +116,9 @@ if st.button("✨ 맞춤 원고 생성하기", use_container_width=True):
                - 모든 작성이 끝나면 '{SPLIT_TAG}'를 쓰고 '{img_req}'에 대한 영어 이미지 프롬프트 3개를 작성.
             """
             
-            with st.spinner("키워드와 분량을 맞추어 정성껏 작성 중입니다..."):
-                response = model.generate_content(prompt)
-                st.session_state.blog_script = response.text
+            with st.spinner("모델을 확인하고 원고를 생성 중입니다..."):
+                res_text = generate_with_fallback(api_key, prompt)
+                st.session_state.blog_script = res_text
         except Exception as e:
             st.error(f"오류: {e}")
 
